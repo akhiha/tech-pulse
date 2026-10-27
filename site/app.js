@@ -328,7 +328,7 @@ function paperCard(i, q, venue) {
       <p class="authors">${highlight(who, q)}</p>
       <div class="tags">${i.k ? `<span class="badge ${i.k === "Main" ? "main" : ""}">${esc(i.k)}</span>` : ""}<span class="muted small">${esc(fmtDate(i.d))}</span>${venue ? `<span class="muted small">· ${esc(venue)}</span>` : ""}</div>
     </div>${saveBtn(i.u, i.t)}</div>
-    ${i.abs ? `<details ${settings.abstracts || q ? "open" : ""}><summary>Abstract</summary><p class="abs">${highlight(i.abs, q)}</p>${i.cm ? `<p class="muted small">Author note: ${esc(i.cm)}</p>` : ""}</details>` : ""}
+    ${i.abs ? `<details ${settings.abstracts || q ? "open" : ""}><summary>Abstract</summary><p class="abs">${highlight(i.abs, q)}</p>${i.absSrc ? `<p class="muted small">Abstract from the <a href="${esc(safeUrl(i.arxiv))}" target="_blank" rel="noopener">${esc(i.absSrc)}</a>; the published version may differ slightly.</p>` : ""}${i.cm ? `<p class="muted small">Author note: ${esc(i.cm)}</p>` : ""}</details>` : `<p class="muted small" style="margin:8px 0 0">No abstract shared by the publisher.</p>`}
     <div class="links">
       <a class="btn primary-link" href="${esc(safeUrl(i.u))}" target="_blank" rel="noopener" data-visit="${esc(i.u)}">Open paper ${icon.ext}</a>
       ${i.pdf ? `<a class="btn" href="${esc(safeUrl(i.pdf))}" target="_blank" rel="noopener" data-visit="${esc(i.u)}">PDF</a>` : ""}

@@ -3,12 +3,15 @@
 Three sources, all from papers.json:
   conferences: arXiv papers whose author comment says they were accepted at <VENUE> <YEAR>
                (this year and next year), so they show up as soon as authors post them.
-  journals:    newest articles from OpenAlex by ISSN, with abstracts.
+  journals:    newest articles from OpenAlex by ISSN, with abstracts. Where the publisher
+               doesn't share the abstract, it is taken from the paper's arXiv preprint
+               (matched by title; lookups are cached in abstract_cache.json).
   topics:      arXiv keyword searches for the newest papers on a research topic.
 
 Run daily by GitHub Actions. arXiv asks for one request every 3 seconds; we keep to that.
 Set OPENALEX_API_KEY to use your own free OpenAlex key (recommended on shared CI machines).
 """
+import difflib
 import json
 import os
 import re
@@ -27,6 +30,9 @@ UA = "TechPulse/1.0 (personal research reader)"
 ARXIV = "https://export.arxiv.org/api/query?"
 PAGE = 1000
 MAX_PER_VENUE_YEAR = 4000
+LOOKUPS_PER_RUN = 250      # arXiv title lookups per run (3 s each); the rest wait for tomorrow
+RETRY_MISS_DAYS = 14       # a preprint may appear later, so look again after this
+TITLE_MATCH = 0.93         # how alike two titles must be to count as the same paper
 socket.setdefaulttimeout(90)
 
 NOT_ACCEPTED = re.compile(r"under review|submitted to|in submission|under submission|submission to|preprint submitted|to be submitted", re.I)
@@ -149,6 +155,49 @@ def fetch_journal(j):
     return items
 
 
+STOPWORDS = set("a an the of for and in on to with by from at via is are its as or using based towards toward".split())
+
+
+def norm_title(t):
+    return re.sub(r"[^a-z0-9]+", " ", t.lower()).strip()
+
+
+def fill_from_arxiv(items, cache, budget):
+    """Give items without an abstract the abstract of their arXiv preprint. Returns lookups used."""
+    today = datetime.now(timezone.utc).date()
+    used = 0
+    for it in items:
+        if it["abs"]:
+            continue
+        key = it["u"]
+        hit = cache.get(key)
+        if hit and "abs" in hit:
+            it.update(abs=hit["abs"], absSrc="arXiv preprint", arxiv=hit["u"])
+            it["pdf"] = it["pdf"] or hit.get("pdf")
+            continue
+        if hit and (today - datetime.fromisoformat(hit["miss"]).date()).days < RETRY_MISS_DAYS:
+            continue
+        if used >= budget:
+            continue
+        # Search on the title's main words (not the exact phrase), so punctuation and
+        # capitalisation differences between preprint and journal titles don't matter.
+        words = [w for w in norm_title(it["t"]).split() if w not in STOPWORDS and len(w) > 2][:8]
+        if len(words) < 3:
+            continue
+        used += 1
+        d = arxiv(" AND ".join(f"ti:{w}" for w in words), 0, 5, sort="relevance")
+        want = norm_title(it["t"])
+        best = max(d.entries, key=lambda e: difflib.SequenceMatcher(None, want, norm_title(e.title)).ratio(), default=None)
+        if best and difflib.SequenceMatcher(None, want, norm_title(best.title)).ratio() >= TITLE_MATCH:
+            a = arxiv_item(best)
+            cache[key] = {"abs": a["abs"], "u": a["u"], "pdf": a["pdf"]}
+            it.update(abs=a["abs"], absSrc="arXiv preprint", arxiv=a["u"])
+            it["pdf"] = it["pdf"] or a["pdf"]
+        else:
+            cache[key] = {"miss": today.isoformat()}
+    return used
+
+
 def fetch_topic(t):
     d = arxiv(t["query"], 0, 200)
     cutoff = (datetime.now(timezone.utc) - timedelta(days=10)).date().isoformat()
@@ -206,6 +255,9 @@ def main():
             })
             print(f"{key:16} {len(items):5} accepted papers on arXiv")
 
+    cache_file = OUT / "abstract_cache.json"
+    abs_cache = json.loads(cache_file.read_text()) if cache_file.exists() else {}
+    budget = LOOKUPS_PER_RUN
     for j in cfg["journals"]:
         try:
             items = fetch_journal(j)
@@ -215,12 +267,19 @@ def main():
             if prev:
                 index["journals"].append(prev)
             continue
+        had = sum(1 for i in items if i["abs"])
+        try:
+            budget -= fill_from_arxiv(items, abs_cache, budget)
+        except Exception as ex:  # noqa: BLE001 - keep the articles even if arXiv lookups fail
+            index["problems"].append({"source": f"{j['id']} abstracts", "error": str(ex)[:200]})
+        cache_file.write_text(json.dumps(abs_cache, ensure_ascii=False, separators=(",", ":")))
         f = f"journal-{slug(j['id'])}.json"
         write(f, {"items": items})
         index["journals"].append({"key": j["id"], "id": j["id"], "field": j["field"], "name": j["name"],
                                   "file": f, "count": len(items), "week": week_count(items),
                                   "latest": max(((i["d"] or "") for i in items), default="")})
-        print(f"{j['id']:16} {len(items):5} newest articles")
+        print(f"{j['id']:16} {len(items):5} newest articles, abstracts {had} from publisher"
+              f" + {sum(1 for i in items if i.get('absSrc'))} from arXiv")
 
     for t in cfg["topics"]:
         try:

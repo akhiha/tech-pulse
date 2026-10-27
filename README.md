@@ -53,3 +53,9 @@ The fetcher searches those notes for each conference (this year and next), skipp
 "under review" or "submitted to". Papers show up weeks before the conference.
 Papers that never go on arXiv are missed, so every conference page also links to its
 official program.
+
+Journal abstracts come from OpenAlex. Some publishers (often Elsevier and Springer) don't
+share them; for those articles the fetcher looks for the paper's arXiv preprint by title
+and uses its abstract, marked "Abstract from the arXiv preprint". Up to 250 lookups run per
+day and results are remembered, so the backlog clears within a couple of days. Articles
+with no preprint stay without an abstract and link to the publisher.
