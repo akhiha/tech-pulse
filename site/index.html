@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tech Pulse</title>
+<meta name="description" content="Tech news, videos and research papers, sorted by category and updated every hour.">
+<meta name="theme-color" content="#f6f5f1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#15171a" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Tech Pulse">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <button class="icon-btn back" id="back" aria-label="Back" hidden>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+  </button>
+  <div class="titles">
+    <h1 id="page-title">Tech Pulse</h1>
+    <p id="updated" class="muted small"></p>
+  </div>
+  <button class="icon-btn" id="open-settings" aria-label="Reading settings">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18L9 6l5 12M5.8 14h6.4M15 18l3-7 3 7M15.9 16h4.2"/></svg>
+  </button>
+</header>
+
+<main id="view" tabindex="-1"></main>
+
+<nav class="tabbar" aria-label="Main">
+  <a href="#/" data-tab="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v9H4z"/></svg><span>Home</span></a>
+  <a href="#/videos" data-tab="videos"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="3"/><path d="M10 9.5l5 2.5-5 2.5z"/></svg><span>Videos</span></a>
+  <a href="#/papers" data-tab="papers"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"/><path d="M10 12h5M10 16h5"/></svg><span>Papers</span></a>
+  <a href="#/saved" data-tab="saved"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v17l-5-4-5 4z"/></svg><span>Saved</span></a>
+</nav>
+
+<dialog id="settings" aria-labelledby="settings-title">
+  <form method="dialog">
+    <h2 id="settings-title">Reading settings</h2>
+    <fieldset>
+      <legend>Text size</legend>
+      <div class="seg" data-setting="size">
+        <button type="button" value="s">A</button><button type="button" value="m">A</button><button type="button" value="l">A</button><button type="button" value="xl">A</button>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Theme</legend>
+      <div class="seg" data-setting="theme">
+        <button type="button" value="auto">Auto</button><button type="button" value="light">Light</button><button type="button" value="dark">Dark</button>
+      </div>
+    </fieldset>
+    <label class="switch"><input type="checkbox" data-setting="summaries"> <span>Show a short summary under each headline</span></label>
+    <label class="switch"><input type="checkbox" data-setting="images"> <span>Show pictures</span></label>
+    <label class="switch"><input type="checkbox" data-setting="abstracts"> <span>Open paper abstracts automatically</span></label>
+    <button class="primary" value="close">Done</button>
+  </form>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>

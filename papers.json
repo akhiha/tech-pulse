@@ -1,0 +1,251 @@
+{
+  "fields": [
+    {
+      "id": "se",
+      "name": "Software Engineering"
+    },
+    {
+      "id": "ai",
+      "name": "AI, ML & Agents"
+    },
+    {
+      "id": "green",
+      "name": "Sustainability & Energy"
+    }
+  ],
+  "conferences": [
+    {
+      "id": "ICSE",
+      "field": "se",
+      "name": "International Conference on Software Engineering",
+      "official": "https://conf.researchr.org/home/icse-{year}"
+    },
+    {
+      "id": "FSE",
+      "field": "se",
+      "name": "Foundations of Software Engineering",
+      "official": "https://conf.researchr.org/home/fse-{year}"
+    },
+    {
+      "id": "ASE",
+      "field": "se",
+      "name": "Automated Software Engineering",
+      "official": "https://conf.researchr.org/home/ase-{year}"
+    },
+    {
+      "id": "ISSTA",
+      "field": "se",
+      "name": "Software Testing and Analysis",
+      "official": "https://conf.researchr.org/home/issta-{year}"
+    },
+    {
+      "id": "MSR",
+      "field": "se",
+      "name": "Mining Software Repositories",
+      "official": "https://conf.researchr.org/home/msr-{year}"
+    },
+    {
+      "id": "ICSME",
+      "field": "se",
+      "name": "Software Maintenance and Evolution",
+      "official": "https://conf.researchr.org/home/icsme-{year}"
+    },
+    {
+      "id": "SANER",
+      "field": "se",
+      "name": "Software Analysis, Evolution and Reengineering",
+      "official": "https://conf.researchr.org/home/saner-{year}"
+    },
+    {
+      "id": "ESEM",
+      "field": "se",
+      "name": "Empirical Software Engineering and Measurement",
+      "official": "https://conf.researchr.org/home/esem-{year}"
+    },
+    {
+      "id": "ICSA",
+      "field": "se",
+      "name": "Software Architecture",
+      "official": "https://conf.researchr.org/home/icsa-{year}"
+    },
+    {
+      "id": "RE",
+      "field": "se",
+      "name": "Requirements Engineering",
+      "official": "https://conf.researchr.org/home/re-{year}"
+    },
+    {
+      "id": "EASE",
+      "field": "se",
+      "name": "Evaluation and Assessment in Software Engineering",
+      "official": "https://conf.researchr.org/home/ease-{year}"
+    },
+    {
+      "id": "ICPC",
+      "field": "se",
+      "name": "Program Comprehension",
+      "official": "https://conf.researchr.org/home/icpc-{year}"
+    },
+    {
+      "id": "NeurIPS",
+      "field": "ai",
+      "name": "Neural Information Processing Systems",
+      "official": "https://neurips.cc/virtual/{year}/papers.html"
+    },
+    {
+      "id": "ICML",
+      "field": "ai",
+      "name": "International Conference on Machine Learning",
+      "official": "https://icml.cc/virtual/{year}/papers.html"
+    },
+    {
+      "id": "ICLR",
+      "field": "ai",
+      "name": "International Conference on Learning Representations",
+      "official": "https://iclr.cc/virtual/{year}/papers.html"
+    },
+    {
+      "id": "AAAI",
+      "field": "ai",
+      "name": "AAAI Conference on Artificial Intelligence",
+      "official": "https://aaai.org/conference/aaai/"
+    },
+    {
+      "id": "IJCAI",
+      "field": "ai",
+      "name": "International Joint Conference on AI",
+      "official": "https://www.ijcai.org/proceedings/{year}"
+    },
+    {
+      "id": "AAMAS",
+      "field": "ai",
+      "name": "Autonomous Agents and Multiagent Systems",
+      "official": "https://www.ifaamas.org/Proceedings/aamas{year}/"
+    },
+    {
+      "id": "ACL",
+      "field": "ai",
+      "name": "Association for Computational Linguistics",
+      "official": "https://aclanthology.org/events/acl-{year}/"
+    },
+    {
+      "id": "EMNLP",
+      "field": "ai",
+      "name": "Empirical Methods in NLP",
+      "official": "https://aclanthology.org/events/emnlp-{year}/"
+    },
+    {
+      "id": "ICT4S",
+      "field": "green",
+      "name": "ICT for Sustainability",
+      "official": "https://www.ict4s.org/"
+    },
+    {
+      "id": "e-Energy",
+      "field": "green",
+      "name": "ACM Future Energy Systems",
+      "official": "https://energy.acm.org/conferences/eenergy/"
+    }
+  ],
+  "journals": [
+    {
+      "id": "TSE",
+      "field": "se",
+      "name": "IEEE Transactions on Software Engineering",
+      "issn": "0098-5589"
+    },
+    {
+      "id": "TOSEM",
+      "field": "se",
+      "name": "ACM Transactions on Software Engineering and Methodology",
+      "issn": "1049-331X"
+    },
+    {
+      "id": "PACMSE",
+      "field": "se",
+      "name": "Proc. ACM on Software Engineering (FSE, ISSTA papers)",
+      "issn": "2994-970X"
+    },
+    {
+      "id": "EMSE",
+      "field": "se",
+      "name": "Empirical Software Engineering",
+      "issn": "1382-3256"
+    },
+    {
+      "id": "JSS",
+      "field": "se",
+      "name": "Journal of Systems and Software",
+      "issn": "0164-1212"
+    },
+    {
+      "id": "IST",
+      "field": "se",
+      "name": "Information and Software Technology",
+      "issn": "0950-5849"
+    },
+    {
+      "id": "IEEE Software",
+      "field": "se",
+      "name": "IEEE Software",
+      "issn": "0740-7459"
+    },
+    {
+      "id": "ASEJ",
+      "field": "se",
+      "name": "Automated Software Engineering (journal)",
+      "issn": "0928-8910"
+    },
+    {
+      "id": "JAIR",
+      "field": "ai",
+      "name": "Journal of Artificial Intelligence Research",
+      "issn": "1076-9757"
+    },
+    {
+      "id": "JMLR",
+      "field": "ai",
+      "name": "Journal of Machine Learning Research",
+      "issn": "1532-4435"
+    },
+    {
+      "id": "Nat. Mach. Intell.",
+      "field": "ai",
+      "name": "Nature Machine Intelligence",
+      "issn": "2522-5839"
+    },
+    {
+      "id": "SUSCOM",
+      "field": "green",
+      "name": "Sustainable Computing: Informatics and Systems",
+      "issn": "2210-5379"
+    }
+  ],
+  "topics": [
+    {
+      "id": "agents",
+      "name": "LLM agents & agentic AI",
+      "query": "abs:\"agentic\" OR abs:\"LLM agent\" OR abs:\"LLM-based agent\" OR abs:\"multi-agent system\""
+    },
+    {
+      "id": "ai4se",
+      "name": "AI for software engineering",
+      "query": "cat:cs.SE AND (abs:LLM OR abs:\"large language model\" OR abs:agent)"
+    },
+    {
+      "id": "greenai",
+      "name": "Green AI & energy",
+      "query": "(abs:\"energy consumption\" OR abs:\"energy efficiency\" OR abs:\"carbon footprint\" OR abs:\"green software\") AND (abs:LLM OR abs:\"language model\" OR abs:software)"
+    },
+    {
+      "id": "uncertainty",
+      "name": "Uncertainty in LLMs & agents",
+      "query": "abs:uncertainty AND (abs:LLM OR abs:agent)"
+    },
+    {
+      "id": "cs.SE",
+      "name": "Every new cs.SE paper",
+      "query": "cat:cs.SE"
+    }
+  ]
+}

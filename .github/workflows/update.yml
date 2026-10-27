@@ -1,0 +1,62 @@
+name: Update and publish
+
+on:
+  schedule:
+    - cron: "17 * * * *"   # every hour: news and videos
+  workflow_dispatch:        # "Run workflow" button on GitHub
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements.txt
+
+      # Papers are fetched once a day; between runs they are kept in the Actions cache.
+      - uses: actions/cache@v4
+        with:
+          path: site/data/papers
+          key: papers-${{ github.run_id }}
+          restore-keys: papers-
+
+      - name: Fetch news and videos
+        run: python scripts/fetch_news.py
+
+      - name: Fetch papers (once a day)
+        env:
+          OPENALEX_API_KEY: ${{ secrets.OPENALEX_API_KEY }}
+        run: |
+          if python - <<'PY'
+          import json, sys, datetime as dt, pathlib
+          p = pathlib.Path("site/data/papers/index.json")
+          if not p.exists(): sys.exit(0)
+          age = dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(json.loads(p.read_text())["updated"])
+          sys.exit(0 if age > dt.timedelta(hours=20) or "${{ github.event_name }}" != "schedule" else 1)
+          PY
+          then python scripts/fetch_papers.py; else echo "Papers are fresh, skipping"; fi
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,15 @@
+{
+  "name": "Tech Pulse",
+  "short_name": "Tech Pulse",
+  "description": "Tech news, videos and research papers, sorted by category and updated every hour.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f5f1",
+  "theme_color": "#1f5fbf",
+  "icons": [
+    {"src": "icon-180.png", "sizes": "180x180", "type": "image/png"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "icon.svg", "sizes": "any", "type": "image/svg+xml"}
+  ]
+}
