@@ -48,7 +48,7 @@ def image_of(e):
     for blob in [e.get("summary", "")] + [c.get("value", "") for c in e.get("content") or []]:
         m = IMG_RE.search(blob or "")
         if m and not m.group(1).startswith("data:"):
-            return m.group(1)
+            return html.unescape(m.group(1))
     return None
 
 
