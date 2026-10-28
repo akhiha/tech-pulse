@@ -233,6 +233,11 @@
       "query": "cat:cs.SE AND (abs:LLM OR abs:\"large language model\" OR abs:agent)"
     },
     {
+      "id": "se4ai",
+      "name": "Software engineering for AI",
+      "query": "cat:cs.SE AND (abs:\"AI systems\" OR abs:\"AI-based systems\" OR abs:\"AI-enabled systems\" OR abs:\"ML systems\" OR abs:\"machine learning systems\" OR abs:\"deep learning systems\" OR abs:\"LLM-based systems\" OR abs:\"LLM-based applications\" OR abs:\"LLM applications\" OR abs:\"agentic systems\" OR abs:\"compound AI\" OR abs:MLOps OR abs:LLMOps OR abs:\"AI engineering\" OR abs:SE4AI)"
+    },
+    {
       "id": "greenai",
       "name": "Green AI & energy",
       "query": "(abs:\"energy consumption\" OR abs:\"energy efficiency\" OR abs:\"carbon footprint\" OR abs:\"green software\") AND (abs:LLM OR abs:\"language model\" OR abs:software)"
