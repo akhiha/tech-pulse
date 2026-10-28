@@ -2,13 +2,16 @@
 "use strict";
 
 const CATS = {
-  tech:     { emoji: "📰", blurb: "The day's tech stories from the big newsrooms" },
-  giants:   { emoji: "🏢", blurb: "Straight from Google, Apple, Microsoft, OpenAI and more" },
-  ai:       { emoji: "🤖", blurb: "AI models, agents, labs and expert newsletters" },
+  top:      { emoji: "⭐", blurb: "The stories the most sources are covering" },
+  giants:   { emoji: "🏢", blurb: "Straight from Anthropic, OpenAI, Google, Apple, Microsoft, Thoughtworks and more" },
+  models:   { emoji: "🧠", blurb: "New AI models, reasoning models and open weights" },
+  ai:       { emoji: "🤖", blurb: "Agents, AI research and expert newsletters" },
   se:       { emoji: "🛠️", blurb: "Software engineering practice, tools and open source" },
-  green:    { emoji: "🌱", blurb: "Climate, clean energy and the energy cost of computing" },
+  eng:      { emoji: "🏗️", blurb: "How Netflix, Meta, Stripe, Spotify and others build their systems" },
+  green:    { emoji: "🌱", blurb: "IEA reports, clean energy and the energy cost of computing" },
   security: { emoji: "🔒", blurb: "Breaches, vulnerabilities and security analysis" },
   hardware: { emoji: "🖥️", blurb: "Chips, GPUs, servers and data-centre hardware" },
+  tech:     { emoji: "📰", blurb: "Everything else from the big tech newsrooms" },
   videos:   { emoji: "▶️", blurb: "Latest videos from tech, AI and research channels" },
 };
 const FIELD_CLASS = { se: "se", ai: "ai", green: "green" };
@@ -106,38 +109,102 @@ const skeleton = (n = 6) => Array.from({ length: n }, () => '<div class="skeleto
 const errorBox = (msg) => `<div class="empty"><div class="big">📡</div><p>${esc(msg)}</p><p class="small">Check your connection and pull down to refresh.</p></div>`;
 $("#back").addEventListener("click", () => (history.length > 1 ? history.back() : (location.hash = "#/")));
 
-/* ---------- Home: one card per category ---------- */
+/* ---------- Today: the brief, top 3 per section, no story twice ---------- */
+// Reading time: about 220 words a minute, plus a few seconds to take in each headline.
+const storyMinutes = (s) => ((s.t + " " + (s.x || "")).split(/\s+/).length / 220) + 0.1;
 async function renderHome() {
-  setChrome("Tech Pulse", "home", false);
+  setChrome("Today", "home", false);
   view.innerHTML = skeleton(5);
   let idx;
   try { idx = await load("data/news/index.json"); } catch { view.innerHTML = errorBox("Couldn't load the news."); return; }
   setUpdated(idx.updated);
-  const hour = new Date().getHours();
-  const hello = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-  const card = (c) => {
-    const meta = CATS[c.id] || { emoji: "•", blurb: "" };
-    const seen = lastSeen[c.id];
-    const fresh = seen ? c.top.filter((i) => i.d > seen).length : 0;
-    const href = c.id === "videos" ? "#/videos" : `#/c/${c.id}`;
-    return `<section class="cat-card" aria-labelledby="h-${c.id}">
-      <a class="cat-head" href="${href}">
-        <span class="cat-emoji" aria-hidden="true">${meta.emoji}</span>
-        <span class="grow"><h3 id="h-${c.id}">${esc(c.name)}</h3><p>${esc(meta.blurb)}</p></span>
-        ${fresh ? `<span class="pill-new">${fresh}${fresh === 3 ? "+" : ""} new</span>` : ""}
-      </a>
-      <ul class="cat-top">${c.top.map((i) => `<li><a href="${esc(safeUrl(i.u))}" target="_blank" rel="noopener" data-visit="${esc(i.u)}">${esc(i.t)}<span class="meta">${esc(i.s)} · ${ago(i.d)}</span></a></li>`).join("")}</ul>
-      <a class="see-all" href="${href}">See all ${c.count} ${c.id === "videos" ? "videos" : "stories"} ${icon.chev}</a>
-    </section>`;
+  const sections = idx.brief.filter((b) => b.stories.length);
+  const all = sections.flatMap((b) => b.stories);
+  all.forEach((s) => itemByKey.set(s.u, { kind: "news", item: s }));
+  const mins = Math.max(1, Math.round(all.reduce((t, s) => t + storyMinutes(s), 0)));
+  const done = all.filter((s) => visited.has(s.u)).length;
+  const count = Object.fromEntries(idx.categories.map((c) => [c.id, c.count]));
+  const today = new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
+  const maxTerm = Math.max(1, ...(idx.trending || []).map((t) => t[1]));
+
+  const section = (b) => {
+    const meta = CATS[b.id] || { emoji: "•", blurb: "" };
+    const more = b.id === "top" ? "" : b.id === "models" ? `<a class="see-all" href="#/models">All model news and new models ${icon.chev}</a>`
+      : `<a class="see-all" href="#/c/${b.id}">See all ${count[b.id] || ""} in ${esc(b.name)} ${icon.chev}</a>`;
+    const models = b.id === "models" && idx.models?.new?.length ? `<div class="mini-models"><p class="mini-label">New models this month · ${idx.models.count}</p>
+      ${idx.models.new.map((m) => `<a href="#/models/new" class="mini-model"><b>${esc(m.name)}</b><span>${esc(m.by)} · ${esc(fmtDate(m.d))}${m.reasoning ? " · reasoning" : ""}${m.open ? " · open weights" : ""}</span></a>`).join("")}</div>` : "";
+    return `<section class="brief-sec" id="sec-${b.id}" aria-labelledby="bh-${b.id}">
+      <h2 class="brief-h" id="bh-${b.id}"><span aria-hidden="true">${meta.emoji}</span> ${esc(b.name)}</h2>
+      <p class="brief-blurb">${esc(meta.blurb)}</p>
+      ${b.stories.map((s, n) => storyCard(s, n + 1)).join("")}${models}${more}</section>`;
   };
-  const news = idx.categories.filter((c) => c.id !== "videos");
-  view.innerHTML = `<div class="lead"><h2>${hello}</h2><p class="muted">Pick a topic. Each one opens on its own page.</p></div>
-    <p class="group-label">News</p>${news.map(card).join("")}
-    <p class="group-label">Watch &amp; read</p>
-    ${idx.categories.filter((c) => c.id === "videos").map(card).join("")}
-    <section class="cat-card"><a class="cat-head" href="#/papers"><span class="cat-emoji" aria-hidden="true">📄</span>
-      <span class="grow"><h3>Research papers</h3><p>Accepted conference papers, new journal articles and your research topics</p></span></a>
-      <a class="see-all" href="#/papers">Browse conferences, journals and topics ${icon.chev}</a></section>`;
+  view.innerHTML = `<div class="lead">
+      <h2>${esc(today)}</h2>
+      <p class="muted">${all.length} stories, picked from ${idx.itemCount} headlines. Each story appears once, with every source that covered it.</p>
+    </div>
+    <div class="meter" role="group" aria-label="Today's reading">
+      <div class="meter-top"><span><b>About ${mins} min</b> to read the summaries</span><span id="meter-n">${done} of ${all.length} opened</span></div>
+      <div class="bar" aria-hidden="true"><span id="meter-bar" style="width:${(100 * done) / all.length}%"></span></div>
+    </div>
+    <nav class="chips jump" aria-label="Jump to a section">
+      ${sections.map((b) => `<a class="chip" href="#sec-${b.id}" data-jump="sec-${b.id}">${CATS[b.id]?.emoji || ""} ${esc(b.name)}</a>`).join("")}
+    </nav>
+    ${idx.trending?.length ? `<details class="trend"><summary>What's being talked about <span class="muted small">· last 2 days</span></summary>
+      <p class="muted small">Words that appear in the most headlines, counting every source. Tap one to see those stories.</p>
+      <ul class="trend-bars">${idx.trending.map(([w, n]) => `<li><a href="#/s/${encodeURIComponent(w)}"><span class="tw">${esc(w)}</span><span class="tb"><span style="width:${(100 * n) / maxTerm}%"></span></span><span class="tn">${n}</span></a></li>`).join("")}</ul></details>` : ""}
+    ${sections.map(section).join("")}
+    <p class="group-label">Go deeper</p>
+    <div class="browse">${idx.categories.filter((c) => c.id !== "videos").map((c) => `<a class="venue" href="${c.id === "models" ? "#/models" : `#/c/${c.id}`}"><span class="cat-emoji" aria-hidden="true">${CATS[c.id]?.emoji || "•"}</span><span class="grow"><h3>${esc(c.name)}</h3><p>${esc(CATS[c.id]?.blurb || "")}</p></span><span class="count"><b>${c.count}</b>stories</span>${icon.chev}</a>`).join("")}</div>`;
+  view.querySelectorAll("[data-jump]").forEach((a) => a.addEventListener("click", (e) => {
+    e.preventDefault(); document.getElementById(a.dataset.jump)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }));
+  const updateMeter = () => {
+    const n = all.filter((s) => visited.has(s.u)).length;
+    const el = $("#meter-n"); if (!el) return;
+    el.textContent = n === all.length ? "All done for today 🎉" : `${n} of ${all.length} opened`;
+    $("#meter-bar").style.width = `${(100 * n) / all.length}%`;
+  };
+  view.addEventListener("click", (e) => { if (e.target.closest("[data-visit]")) setTimeout(updateMeter, 0); });
+}
+
+// One story in the brief: headline, the article's own opening lines, and the other sources that covered it.
+function storyCard(s, rank) {
+  const v = visited.has(s.u);
+  const img = settings.images && s.img ? `<img class="thumb" src="${esc(safeUrl(s.img))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : "";
+  return `<article class="story${v ? " visited" : ""}">
+    <div class="story-main">
+      <span class="rank" aria-hidden="true">${rank}</span>
+      <div class="body">
+        <a class="link" href="${esc(safeUrl(s.u))}" target="_blank" rel="noopener" data-visit="${esc(s.u)}"><h3>${esc(s.t)}</h3></a>
+        <div class="meta"><span class="src">${esc(s.s)}</span>${s.off ? '<span class="badge main">Official</span>' : ""}<span>· ${ago(s.d)}</span>${s.n > 1 ? `<span class="badge">${s.n} sources</span>` : ""}${s.min ? `<span>· ${s.min} min read</span>` : ""}</div>
+        ${settings.summaries && s.x ? `<p class="sum full">${esc(s.x)}</p>` : ""}
+      </div>
+      <div class="side">${img}${saveBtn(s.u, s.t)}</div>
+    </div>
+    ${alsoList(s)}
+  </article>`;
+}
+function alsoList(s) {
+  if (!s.also?.length) return "";
+  return `<details class="also"><summary>Also covered by ${esc(s.also.slice(0, 3).map((a) => a.s).join(", "))}${s.also.length > 3 ? ` +${s.also.length - 3}` : ""}</summary>
+    <ul>${s.also.map((a) => `<li><a href="${esc(safeUrl(a.u))}" target="_blank" rel="noopener" data-visit="${esc(s.u)}"><b>${esc(a.s)}</b> ${esc(a.t)}</a></li>`).join("")}</ul></details>`;
+}
+
+/* ---------- search across every category ---------- */
+async function renderSearch(q) {
+  setChrome(`“${q}”`, "home", true);
+  view.innerHTML = skeleton();
+  let idx;
+  try { idx = await load("data/news/index.json"); } catch { view.innerHTML = errorBox("Couldn't load the news."); return; }
+  const ids = idx.categories.map((c) => c.id).filter((id) => id !== "videos");
+  const files = await Promise.all(ids.map((id) => load(`data/news/${id}.json`).catch(() => ({ items: [] }))));
+  const seen = new Set();
+  const re = new RegExp(`\\b${q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "i");
+  const hits = files.flatMap((f) => f.items || f.news || []).filter((s) => !seen.has(s.u) && seen.add(s.u) && (re.test(s.t) || (s.also || []).some((a) => re.test(a.t))));
+  hits.sort((a, b) => b.sc - a.sc || (b.d > a.d ? 1 : -1));
+  setUpdated(idx.updated);
+  view.innerHTML = `<div class="notice">${hits.length} stories mention <b>${esc(q)}</b>, most covered first.</div>`
+    + (hits.length ? `<ul class="list">${hits.slice(0, 80).map((s) => newsRow(s, q, false)).join("")}</ul>` : `<div class="empty"><p>Nothing found.</p></div>`);
 }
 
 /* ---------- a news category ---------- */
@@ -156,8 +223,12 @@ async function renderCategory(id, opts = {}) {
   if (data.items[0]) pendingSeen[id] = data.items[0].d;
 
   const state = { q: "", src: opts.src || "", shown: PAGE_SIZE };
-  const sources = (cat?.sources || []).filter((s) => s.count > 0);
-  view.innerHTML = `
+  // A story counts for a source if that source led it or also covered it.
+  const srcOf = (i) => [i.s, ...(i.also || []).map((a) => a.s)];
+  const tally = {};
+  data.items.forEach((i) => new Set(srcOf(i)).forEach((n) => (tally[n] = (tally[n] || 0) + 1)));
+  const sources = (cat?.sources || []).map((s) => ({ name: s.name, count: tally[s.name] || 0 })).filter((s) => s.count > 0);
+  view.innerHTML = `${isVideo ? "" : `<p class="muted small" style="margin:2px 4px 8px">${esc(meta.blurb || "")}. The same story from several sources is shown once.</p>`}
     <div class="tools">
       <input class="search" type="search" placeholder="Search ${esc(cat?.name || "")}" aria-label="Search this category" enterkeyhint="search">
       <div class="chips" role="group" aria-label="Filter by source">
@@ -169,7 +240,7 @@ async function renderCategory(id, opts = {}) {
   const results = $("#results");
 
   function draw() {
-    const items = data.items.filter((i) => (!state.src || i.s === state.src) && matches(state.q, i.t, i.x, i.s));
+    const items = data.items.filter((i) => (!state.src || srcOf(i).includes(state.src)) && matches(state.q, i.t, i.x, ...srcOf(i)));
     if (!items.length) { results.innerHTML = `<div class="empty"><div class="big">🔍</div><p>Nothing matches.</p></div>`; return; }
     const page = items.slice(0, state.shown);
     let html = "";
@@ -204,9 +275,10 @@ function newsRow(i, q, isNew) {
     <div class="body">
       <a class="link" href="${esc(safeUrl(i.u))}" target="_blank" rel="noopener" data-visit="${esc(i.u)}">
         <h3>${highlight(i.t, q)}</h3>
-        <div class="meta">${isNew && !v ? '<span class="dot-new" title="New since your last visit"></span><span class="sr-only">New.</span>' : ""}<span class="src">${esc(i.s)}</span><span>· ${ago(i.d)}</span>${i.min ? `<span>· ${i.min} min read</span>` : ""}</div>
+        <div class="meta">${isNew && !v ? '<span class="dot-new" title="New since your last visit"></span><span class="sr-only">New.</span>' : ""}<span class="src">${esc(i.s)}</span>${i.off ? '<span class="badge main">Official</span>' : ""}<span>· ${ago(i.d)}</span>${i.n > 1 ? `<span class="badge">${i.n} sources</span>` : ""}${i.min ? `<span>· ${i.min} min read</span>` : ""}</div>
         ${settings.summaries && i.x ? `<p class="sum">${highlight(i.x, q)}</p>` : ""}
       </a>
+      ${alsoList(i)}
     </div>
     <div class="side">${img}${saveBtn(i.u, i.t)}</div>
   </li>`;
@@ -220,6 +292,52 @@ function videoCard(i, q) {
     <div class="vbody"><a class="link" href="${esc(safeUrl(i.u))}" target="_blank" rel="noopener" data-visit="${esc(i.u)}">
       <h3>${highlight(i.t, q)}</h3><div class="meta"><b>${esc(i.s)}</b> · ${ago(i.d)}</div></a>${saveBtn(i.u, i.t)}</div>
   </article>`;
+}
+
+/* ---------- Model Watch ---------- */
+const fmtCtx = (n) => (!n ? "" : n >= 1e6 ? `${+(n / 1e6).toFixed(1)}M` : `${Math.round(n / 1e3)}K`);
+const fmtPrice = (p) => (p === 0 ? "free" : p < 0.1 ? `$${p.toFixed(3)}` : `$${p.toFixed(2)}`);
+const fmtNum = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : String(n ?? ""));
+async function renderModels(sub) {
+  setChrome("Model Watch", "models", false);
+  view.innerHTML = skeleton();
+  let idx, data;
+  try { [idx, data] = await Promise.all([load("data/news/index.json"), load("data/news/models.json")]); }
+  catch { view.innerHTML = errorBox("Couldn't load Model Watch."); return; }
+  setUpdated(idx.updated);
+  const tabs = `<nav class="seg-tabs" aria-label="Model Watch">
+    <a href="#/models/news" ${sub === "news" ? 'aria-current="page"' : ""}>Releases &amp; news</a>
+    <a href="#/models/new" ${sub === "new" ? 'aria-current="page"' : ""}>New models</a>
+    <a href="#/models/trending" ${sub === "trending" ? 'aria-current="page"' : ""}>Trending open</a></nav>`;
+  if (sub === "new") {
+    const FILTERS = [["", "All"], ["reasoning", "Reasoning"], ["open", "Open weights"], ["free", "Free to try"]];
+    const state = { f: "" };
+    view.innerHTML = `${tabs}<div class="notice">Every model added to OpenRouter in the last 30 days, newest first: who made it, how much text it can take in at once, and its price per million tokens (input · output).</div>
+      <div class="chips" role="group" aria-label="Filter models">${FILTERS.map(([k, n]) => `<button class="chip" data-mf="${k}" aria-pressed="${k === ""}">${n}<span class="n">${k ? data.new.filter((m) => m[k]).length : data.new.length}</span></button>`).join("")}</div>
+      <div id="results"></div>`;
+    const draw = () => {
+      const list = data.new.filter((m) => !state.f || m[state.f]);
+      $("#results").innerHTML = list.length ? list.map((m) => `<article class="model">
+        <div class="model-top"><div class="grow"><h3>${esc(m.name)}</h3><p class="muted small">${esc(m.by)} · added ${esc(fmtDate(m.d))}</p></div></div>
+        <div class="tags">${m.reasoning ? '<span class="badge ai">Reasoning</span>' : ""}${m.open ? '<span class="badge se">Open weights</span>' : ""}${m.free ? '<span class="badge green">Free to try</span>' : ""}${(m.mod || []).filter((x) => x !== "text").map((x) => `<span class="badge">${esc(x)}</span>`).join("")}</div>
+        ${m.x ? `<p class="sum full">${esc(m.x)}</p>` : ""}
+        <dl class="facts"><div><dt>Context</dt><dd>${fmtCtx(m.ctx)} tokens</dd></div><div><dt>Price per 1M tokens</dt><dd>${m.in === 0 && m.out === 0 ? "free" : `${fmtPrice(m.in)} · ${fmtPrice(m.out)}`}</dd></div></dl>
+        <div class="links"><a class="btn" href="${esc(safeUrl(m.u))}" target="_blank" rel="noopener">OpenRouter ${icon.ext}</a>${m.hf ? `<a class="btn" href="https://huggingface.co/${esc(m.hf)}" target="_blank" rel="noopener">Hugging Face ${icon.ext}</a>` : ""}</div>
+      </article>`).join("") : `<div class="empty"><p>No models match.</p></div>`;
+    };
+    view.querySelectorAll("[data-mf]").forEach((b) => b.addEventListener("click", () => {
+      state.f = b.dataset.mf; view.querySelectorAll("[data-mf]").forEach((x) => x.setAttribute("aria-pressed", x === b)); draw();
+    }));
+    draw();
+  } else if (sub === "trending") {
+    view.innerHTML = `${tabs}<div class="notice">The models people are downloading and liking most on Hugging Face right now.</div>
+      <ol class="trend-list">${data.trending.map((m) => `<li><a href="${esc(safeUrl(m.u))}" target="_blank" rel="noopener">
+        <span class="grow"><b>${esc(m.name)}</b><span class="muted small">${esc(m.by)}${m.task ? ` · ${esc(m.task.replace(/-/g, " "))}` : ""}${m.d ? ` · ${esc(fmtDate(m.d))}` : ""}</span></span>
+        <span class="count"><b>♥ ${fmtNum(m.likes)}</b>${fmtNum(m.dl)} downloads</span></a></li>`).join("")}</ol>`;
+  } else {
+    view.innerHTML = `${tabs}<div class="notice">Model launches and model news from the labs and AI newsrooms, the same story from several sources shown once.</div>
+      ${data.news.length ? `<ul class="list">${data.news.map((s) => newsRow(s, "", false)).join("")}</ul>` : `<div class="empty"><p>No model news in the last two weeks.</p></div>`}`;
+  }
 }
 
 /* ---------- Papers ---------- */
@@ -383,6 +501,10 @@ load = async (path) => {
     remember(d.items, kind);
     d.__seen = true;
   }
+  if (d && d.news && !d.__seen) {
+    remember(d.news, "news");
+    d.__seen = true;
+  }
   return d;
 };
 
@@ -417,6 +539,8 @@ function route() {
   if (parts[0] === "papers") return renderPapers(parts[1] || store.get("paperTab", "conferences"));
   if (parts[0] === "p" && parts[1]) return renderPaperList(parts[1], parts.slice(2).join("/"));
   if (parts[0] === "saved") return renderSaved();
+  if (parts[0] === "models") return renderModels(parts[1] || "news");
+  if (parts[0] === "s" && parts[1]) return renderSearch(parts.slice(1).join("/"));
   return renderHome();
 }
 window.addEventListener("hashchange", () => {

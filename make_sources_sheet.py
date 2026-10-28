@@ -10,6 +10,25 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
 INFO = {  # name -> (type, what it covers)
+    "Anthropic": ("Official company site (scraped, no feed)", "Anthropic announcements: Claude models, products, policy"),
+    "Thoughtworks": ("Official company blog", "Thoughtworks insights: AI in delivery, architecture, tech strategy"),
+    "Anthropic Engineering": ("Official company site (scraped, no feed)", "How Anthropic builds agents, Claude Code and its infrastructure"),
+    "Anthropic Research": ("Official company site (scraped, no feed)", "Anthropic research: alignment, interpretability, AI and the economy"),
+    "Qwen": ("Official lab blog", "Alibaba's Qwen model releases"),
+    "Airbnb Engineering": ("Engineering blog", "Search, ML and infrastructure at Airbnb"),
+    "Spotify Engineering": ("Engineering blog", "Recommendation systems and platform engineering at Spotify"),
+    "Stripe": ("Official company blog", "Payments infrastructure and Stripe engineering"),
+    "Slack Engineering": ("Engineering blog", "Slack's infrastructure and developer tooling"),
+    "Dropbox Tech": ("Engineering blog", "Storage, infrastructure and AI at Dropbox"),
+    "Pinterest Engineering": ("Engineering blog", "ML, data and infrastructure at Pinterest"),
+    "Shopify Engineering": ("Engineering blog", "Commerce platform engineering at Shopify"),
+    "Lyft Engineering": ("Engineering blog", "Marketplace, mapping and data engineering at Lyft"),
+    "Datadog Engineering": ("Engineering blog", "Observability, distributed systems and security at Datadog"),
+    "GitHub Engineering": ("Engineering blog", "How GitHub runs Git and its platform at scale"),
+    "ByteByteGo": ("Newsletter", "System design explainers on how big companies build their systems"),
+    "Google for Developers": ("Official company blog", "Gemini API, Android, Chrome and Google developer tools"),
+    "IEA": ("International agency (via Google News)", "International Energy Agency reports, analysis and news"),
+    "Green Software Foundation": ("Industry body", "Standards and research on sustainable software"),
     "The Verge": ("News site", "Consumer tech, gadgets, platforms, policy"),
     "TechCrunch": ("News site", "Startups, funding, venture capital, product launches"),
     "Ars Technica": ("News site", "In-depth tech, science, IT and policy"),
@@ -143,8 +162,11 @@ for cat in cfg["categories"]:
             typ, what = INFO[f["name"]]
         latest = datetime.fromisoformat(chk["latest"]).date() if chk["latest"] else None
         works = "Yes" if chk["ok"] else "No: " + ("feed removed (HTTP 410)" if chk["http"] == 410 else "feed is broken")
-        vals = ["Yes" if chk["ok"] else "No", cat["name"], f["name"], typ, what, works,
-                latest, chk["last7d"] if chk["ok"] else None, f["url"]]
+        yt_down = not chk["ok"] and "youtube.com" in chk["url"] and "404" in chk["error"]
+        if yt_down:      # YouTube drops its feeds for hours at a time; that says nothing about the channel
+            works = "Not checked: YouTube feeds were down during this check"
+        vals = ["Yes" if chk["ok"] or yt_down else "No", cat["name"], f["name"], typ, what, works,
+                latest, chk["last7d"] if chk["ok"] else None, chk["url"]]
         for i, v in enumerate(vals, 1):
             c = ws.cell(r, i, v)
             c.font = Font(name=F, size=10)

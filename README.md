@@ -1,8 +1,28 @@
 # Tech Pulse
 
-A personal reader for tech news, videos and research papers, sorted by category.
-It is a plain website (no app store). GitHub Actions refreshes it on its own:
-news and videos every hour, papers once a day.
+A personal daily tech brief, built to be read in about 15 minutes, plus videos, new AI models
+and research papers. It is a plain website (no app store). GitHub Actions refreshes it on its own:
+news, videos and models every hour, papers once a day.
+
+## How the brief is made (no AI needed)
+
+1. **Collect.** Every source in `feeds.json` is read. Most have an RSS feed. Sites without one are
+   scraped: Anthropic's listing pages are read and each new article is opened once for its title,
+   date, picture and opening paragraphs (remembered in `.cache/`). The IEA blocks automated access,
+   so its reports and news come through Google News.
+2. **Group.** The same event reported by several sources becomes one story. Two headlines match
+   when they share most of their key words, with rare words (names, products such as "GPT-6.1 Terra"
+   or "iOS 27.2") counting for more than common ones, and were published within 72 hours.
+3. **Rank.** A story scores higher the more sources cover it, if the company itself published it,
+   and the more recent it is. Customer-story and sponsored posts rank lower.
+4. **Pick.** The brief shows the 3 top stories overall, then the top 3 of each section. A story
+   appears in one section only.
+5. **Summarise.** Each summary is the article's own opening sentences (author bios, adverts and
+   newsletter housekeeping are skipped). If the feed has nothing useful, the article page's own
+   description is used.
+
+Model Watch adds every model added to OpenRouter in the last 30 days (price, context length,
+reasoning, open weights) and the models trending on Hugging Face. Both are free public lists.
 
 ## What's where
 
@@ -10,7 +30,7 @@ news and videos every hour, papers once a day.
 |---|---|
 | `feeds.json` | News and video sources, by category. Add or remove a feed here. |
 | `papers.json` | Conferences, journals and arXiv topic searches. |
-| `scripts/fetch_news.py` | Downloads the feeds into `site/data/news/`. |
+| `scripts/fetch_news.py` | Reads every source, groups and ranks stories, writes `site/data/news/`. |
 | `scripts/fetch_papers.py` | Downloads papers into `site/data/papers/`. |
 | `site/` | The website itself (`index.html`, `app.js`, `style.css`). |
 | `.github/workflows/update.yml` | The hourly job that fetches and publishes. |
@@ -21,7 +41,7 @@ news and videos every hour, papers once a day.
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt certifi
 export SSL_CERT_FILE=$(.venv/bin/python -m certifi)
-.venv/bin/python scripts/fetch_news.py
+.venv/bin/python scripts/fetch_news.py      # prints the brief it built
 .venv/bin/python scripts/fetch_papers.py
 cd site && python3 -m http.server 8931
 ```

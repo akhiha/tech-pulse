@@ -38,7 +38,14 @@ jobs:
           key: papers-${{ github.run_id }}
           restore-keys: papers-
 
-      - name: Fetch news and videos
+      # Pages read from sites without a feed, and each source's last good items, kept between runs.
+      - uses: actions/cache@v4
+        with:
+          path: .cache
+          key: news-cache-${{ github.run_id }}
+          restore-keys: news-cache-
+
+      - name: Fetch news, videos and Model Watch
         run: python scripts/fetch_news.py
 
       - name: Fetch papers (once a day)
