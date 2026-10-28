@@ -206,7 +206,8 @@
       "id": "JMLR",
       "field": "ai",
       "name": "Journal of Machine Learning Research",
-      "issn": "1532-4435"
+      "issn": "1532-4435",
+      "source": "jmlr"
     },
     {
       "id": "Nat. Mach. Intell.",

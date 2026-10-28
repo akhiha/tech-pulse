@@ -71,7 +71,7 @@ function dayLabel(iso) {
   if (same(d, y)) return "Yesterday";
   return d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
 }
-const fmtDate = (d) => (d ? new Date(d + (d.length === 10 ? "T00:00:00" : "")).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "");
+const fmtDate = (d) => (d && d.length === 4 ? d : d ? new Date(d + (d.length === 10 ? "T00:00:00" : "")).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "");
 function markVisited(key) { visited.add(key); store.set("visited", [...visited].slice(-3000)); }
 const isSaved = (key) => saved.some((s) => s.key === key);
 function toggleSave(key, kind, item) {

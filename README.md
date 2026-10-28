@@ -35,7 +35,7 @@ reasoning, open weights) and the models trending on Hugging Face. Both are free 
 | File | What it is |
 |---|---|
 | `feeds.json` | News and video sources, by category. Add or remove a feed here. |
-| `papers.json` | Conferences, journals and arXiv topic searches. |
+| `papers.json` | Conferences, journals and arXiv topic searches (JMLR is read from jmlr.org, which OpenAlex no longer covers). |
 | `scripts/fetch_news.py` | Reads every source, groups and ranks stories, writes `site/data/news/`. |
 | `scripts/fetch_papers.py` | Downloads papers into `site/data/papers/`. |
 | `site/` | The website itself (`index.html`, `app.js`, `style.css`). |

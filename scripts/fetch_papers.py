@@ -13,6 +13,7 @@ Run daily by GitHub Actions. arXiv asks for one request every 3 seconds; we keep
 Set OPENALEX_API_KEY to use your own free OpenAlex key (recommended on shared CI machines).
 """
 import difflib
+import html
 import json
 import os
 import re
@@ -165,6 +166,24 @@ def fetch_journal(j, since):
     return items
 
 
+def fetch_jmlr(years):
+    """JMLR isn't in OpenAlex for recent years: read its yearly volume pages, with abstracts from its feed."""
+    feed = feedparser.parse("https://www.jmlr.org/jmlr.xml", agent=UA)
+    abstracts = {urllib.parse.urlsplit(e.link).path: WS.sub(" ", e.get("summary", "")).strip() for e in feed.entries}
+    items = []
+    for y in years:
+        req = urllib.request.Request(f"https://www.jmlr.org/papers/v{y - 1999}/", headers={"User-Agent": UA})
+        page = urllib.request.urlopen(req, timeout=90).read().decode("utf-8", "replace")
+        vol = []
+        for t, who, href, pdf in re.findall(r"<dt>(.*?)</dt>\s*<dd><b><i>(.*?)</i></b>.*?href='(/papers/v\d+/[^']+\.html)'.*?href='([^']+\.pdf)'", page, re.S):
+            u = "https://www.jmlr.org" + href
+            vol.append({"t": WS.sub(" ", html.unescape(re.sub(r"<[^>]+>", "", t))).strip(),
+                        **authors([a.strip() for a in html.unescape(who).split(",")]),
+                        "d": str(y), "abs": abstracts.get(href, ""), "u": u, "pdf": urllib.parse.urljoin(u, pdf)})
+        items += reversed(vol)          # the volume lists papers oldest first
+    return items
+
+
 STOPWORDS = set("a an the of for and in on to with by from at via is are its as or using based towards toward".split())
 
 
@@ -284,7 +303,10 @@ def main():
         full = not (prev and prev.get("fetched") and prev_file.exists()
                     and (today - datetime.fromisoformat(prev["fetched"]).date()).days < PAST_YEAR_REFRESH_DAYS)
         try:
-            items = fetch_journal(j, oldest if full else (today - timedelta(days=60)).isoformat())
+            if j.get("source") == "jmlr":
+                items, full = fetch_jmlr(range(year, year - YEARS_BACK - 1, -1)), True
+            else:
+                items = fetch_journal(j, oldest if full else (today - timedelta(days=60)).isoformat())
             if not full:
                 have = {i["u"] for i in items}
                 items += [i for i in json.loads(prev_file.read_text())["items"] if i["u"] not in have and (i["d"] or "") >= oldest]
