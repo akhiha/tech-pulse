@@ -347,7 +347,7 @@ async function renderPapers(sub = "conferences") {
   const tabs = `<nav class="seg-tabs" aria-label="Paper sources">
     <a href="#/papers/conferences" ${sub === "conferences" ? 'aria-current="page"' : ""}>Conferences</a>
     <a href="#/papers/journals" ${sub === "journals" ? 'aria-current="page"' : ""}>Journals</a>
-    <a href="#/papers/topics" ${sub === "topics" ? 'aria-current="page"' : ""}>Topics</a></nav>`;
+    <a href="#/papers/topics" ${sub === "topics" ? 'aria-current="page"' : ""}>My Radar</a></nav>`;
   const fieldChips = `<div class="chips" role="group" aria-label="Filter by field">
     <button class="chip" data-field="" aria-pressed="${!field}">All fields</button>
     ${idx.fields.map((f) => `<button class="chip" data-field="${f.id}" aria-pressed="${field === f.id}">${esc(f.name)}</button>`).join("")}</div>`;
@@ -371,9 +371,9 @@ async function renderPapers(sub = "conferences") {
         <span class="grow"><h3>${esc(j.id)}</h3><p>${esc(j.name)}</p></span>
         <span class="count"><b>${j.count}</b>articles${week(j.week)}</span>${icon.chev}</a>`)}`;
   } else {
-    body = `<div class="notice">New arXiv papers from the last 10 days on each research topic.</div>
+    body = `<div class="notice"><b>My Radar</b>: research areas I keep an eye on, and the new arXiv papers in each from the last 10 days.</div>
       ${idx.topics.map((t) => `<a class="venue" href="#/p/topic/${encodeURIComponent(t.key)}">
-        <span class="grow"><h3>${esc(t.name)}</h3><p>arXiv search, newest first</p></span>
+        <span class="grow"><h3>${esc(t.name)}</h3><p>New on arXiv, newest first</p></span>
         <span class="count"><b>${t.count}</b>papers${t.week ? `<br><span style="color:var(--new)">+${t.week} this week</span>` : ""}</span>${icon.chev}</a>`).join("")}`;
   }
   view.innerHTML = `${tabs}${sub === "topics" ? "" : fieldChips}<div style="margin-top:10px">${body}</div>`;
@@ -417,7 +417,7 @@ async function renderPaperList(kind, key) {
     ? `<div class="notice"><b>${esc(v.name)}</b><br>${v.count} accepted papers found on arXiv so far.
        <a href="${esc(safeUrl(v.official))}" target="_blank" rel="noopener">See the full official program ↗</a></div>`
     : kind === "journal" ? `<div class="notice"><b>${esc(v.name)}</b><br>${v.count} articles from the last three years, newest first.</div>`
-    : `<div class="notice">Newest arXiv papers: <b>${esc(v.name)}</b>.</div>`;
+    : `<div class="notice">My Radar: <b>${esc(v.name)}</b>. New arXiv papers from the last 10 days.</div>`;
   view.innerHTML = `${intro}
     <div class="tools">
       <input class="search" type="search" placeholder="Search titles, abstracts, authors" aria-label="Search papers" enterkeyhint="search">
