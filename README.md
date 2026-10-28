@@ -13,6 +13,9 @@ news and models every hour, papers once a day.
 2. **Group.** The same event reported by several sources becomes one story. Two headlines match
    when they share most of their key words, with rare words (names, products such as "GPT-6.1 Terra"
    or "iOS 27.2") counting for more than common ones, and were published within 72 hours.
+   A big event is written about from many angles, so its headlines don't look alike: headlines
+   naming the same company and the same kind of event (an IPO, an acquisition, a lawsuit, layoffs…)
+   within four days join one **developing story** once three or more sources cover it.
 3. **Rank.** A story scores higher the more sources cover it, if the company itself published it,
    and the more recent it is. Customer-story and sponsored posts rank lower.
 4. **Pick.** The brief shows the 3 top stories overall, then the top 3 of each section. A story
@@ -20,6 +23,9 @@ news and models every hour, papers once a day.
 5. **Summarise.** Each summary is the article's own opening sentences (author bios, adverts and
    newsletter housekeeping are skipped). If the feed has nothing useful, the article page's own
    description is used.
+
+The Today page also shows, on the side: the new models most written about, the models trending
+on Hugging Face, and the GitHub projects gaining the most stars this week.
 
 Model Watch adds every model added to OpenRouter in the last 30 days (price, context length,
 reasoning, open weights) and the models trending on Hugging Face. Both are free public lists.
@@ -80,3 +86,9 @@ share them; for those articles the fetcher looks for the paper's arXiv preprint 
 and uses its abstract, marked "Abstract from the arXiv preprint". Up to 250 lookups run per
 day and results are remembered, so the backlog clears within a couple of days. Articles
 with no preprint stay without an abstract and link to the publisher.
+
+## About
+
+Made by Akhila Matathammal, who was tired of checking a dozen sites and wading through AI slop to
+stay up to date. The idea and the logic are Akhila's; the code was written with Claude Code.
+Free to use however you like (MIT licence, see `LICENSE`).

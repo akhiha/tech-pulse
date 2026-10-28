@@ -284,3 +284,35 @@ legend { font-weight: 600; font-size: .9em; margin-bottom: 8px; }
 .conf-years .years { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .conf-years .years .chip { min-height: 32px; padding: 4px 12px; text-decoration: none; color: var(--text); display: inline-flex; align-items: center; }
 .conf-years .years a, .conf-years .years a * { text-decoration: none; }
+
+/* Today: brief on the left, models and new tools on the right on wide screens; below on phones */
+main.wide { max-width: 1180px; }
+.today-side { display: grid; gap: 12px; margin-top: 20px; align-content: start; }
+.side-box { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+.side-box h2 { margin: 0; padding: 12px 14px 0; font-size: 1em; }
+.side-note { margin: 2px 14px 6px; font-size: .78em; color: var(--muted); }
+.side-item { display: flex; flex-direction: column; gap: 2px; padding: 9px 14px; border-top: 1px solid var(--line); text-decoration: none; min-height: 44px; }
+.side-item b { font-size: .92em; overflow-wrap: anywhere; }
+.side-item span { font-size: .78em; color: var(--muted); }
+.side-item .side-x { color: var(--text); opacity: .85; }
+.side-box .see-all { padding: 10px 14px; }
+@media (min-width: 1100px) {
+  .today { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 28px; align-items: start; }
+  .today-main { min-width: 0; }
+  .today-side { position: sticky; top: 76px; margin-top: 52px; max-height: calc(100vh - 92px); overflow-y: auto; }
+}
+
+/* "What's being talked about" opens and closes: make that obvious */
+.trend summary { list-style: none; }
+.trend summary::-webkit-details-marker { display: none; }
+.trend summary .grow { flex: 1; }
+.trend-toggle { font-size: .82em; font-weight: 600; color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 4px 12px; white-space: nowrap; }
+.trend-toggle::after { content: "Show ▾"; }
+.trend[open] .trend-toggle::after { content: "Hide ▴"; }
+
+/* A developing story: one event covered from many angles */
+.line-tag { margin: 0 0 4px; font-size: .74em; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--new); }
+
+.about { margin: 28px 0 12px; padding: 16px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); font-size: .92em; line-height: 1.55; }
+.about h2 { margin: 0 0 6px; font-size: 1.05em; }
+.about p { margin: 6px 0; }

@@ -130,16 +130,30 @@ async function renderHome() {
     const meta = CATS[b.id] || { emoji: "•", blurb: "" };
     const more = b.id === "top" ? "" : b.id === "models" ? `<a class="see-all" href="#/models">All model news and new models ${icon.chev}</a>`
       : `<a class="see-all" href="#/c/${b.id}">See all ${count[b.id] || ""} in ${esc(b.name)} ${icon.chev}</a>`;
-    const models = b.id === "models" && idx.models?.new?.length ? `<div class="mini-models"><p class="mini-label">New models this month · ${idx.models.count}</p>
-      ${idx.models.new.map((m) => `<a href="#/models/new" class="mini-model"><b>${esc(m.name)}</b><span>${esc(m.by)} · ${esc(fmtDate(m.d))}${m.reasoning ? " · reasoning" : ""}${m.open ? " · open weights" : ""}</span></a>`).join("")}</div>` : "";
     return `<section class="brief-sec" id="sec-${b.id}" aria-labelledby="bh-${b.id}">
       <h2 class="brief-h" id="bh-${b.id}"><span aria-hidden="true">${meta.emoji}</span> ${esc(b.name)}</h2>
       <p class="brief-blurb">${esc(meta.blurb)}</p>
-      ${b.stories.map((s, n) => storyCard(s, n + 1)).join("")}${models}${more}</section>`;
+      ${b.stories.map((s, n) => storyCard(s, n + 1)).join("")}${more}</section>`;
   };
-  view.innerHTML = `<div class="lead">
+  const m = idx.models || {};
+  const side = `<aside class="today-side" aria-label="Models and new tools">
+    ${(m.top || m.new || []).length ? `<section class="side-box"><h2>Top new models</h2><p class="side-note">Added in the last 30 days, most written about first</p>
+      ${(m.top || m.new).map((x) => `<a class="side-item" href="#/models/new"><b>${esc(x.name)}</b><span>${esc(x.by)} · ${esc(fmtDate(x.d))}${x.reasoning ? " · reasoning" : ""}${x.open ? " · open weights" : ""}${x.talk ? ` · in ${x.talk} stor${x.talk > 1 ? "ies" : "y"}` : ""}</span></a>`).join("")}
+      <a class="see-all" href="#/models/new">All ${m.count || ""} new models ${icon.chev}</a></section>` : ""}
+    ${m.trending?.length ? `<section class="side-box"><h2>Trending open models</h2><p class="side-note">Most popular on Hugging Face right now</p>
+      ${m.trending.map((x) => `<a class="side-item" href="${esc(safeUrl(x.u))}" target="_blank" rel="noopener"><b>${esc(x.name)}</b><span>${esc(x.by)}${x.task ? ` · ${esc(x.task)}` : ""}${x.likes ? ` · ${x.likes.toLocaleString()} likes` : ""}</span></a>`).join("")}
+      <a class="see-all" href="#/models/trending">More trending models ${icon.chev}</a></section>` : ""}
+    ${idx.tools?.length ? `<section class="side-box"><h2>New tools</h2><p class="side-note">GitHub projects gaining the most stars this week</p>
+      ${idx.tools.map((x) => `<a class="side-item" href="${esc(safeUrl(x.u))}" target="_blank" rel="noopener"><b>${esc(x.name)}</b>${x.x ? `<span class="side-x">${esc(x.x)}</span>` : ""}<span>${x.lang ? `${esc(x.lang)} · ` : ""}+${x.stars.toLocaleString()} stars this week</span></a>`).join("")}</section>` : ""}
+  </aside>`;
+  const about = `<section class="about" aria-labelledby="about-h">
+    <h2 id="about-h">About Tech &amp; Research Pulse</h2>
+    <p>Made by <b>Akhila Matathammal</b>. I built it for myself: I was tired of checking a dozen sites and wading through AI slop just to stay up to date. Now it's all in one place, so no FOMO :P</p>
+    <p>The idea and the logic are mine; the code was written with Claude Code. No AI writes the summaries: they are each article's own opening lines.</p>
+    <p>The code is open on <a href="https://github.com/akhiha/tech-pulse" target="_blank" rel="noopener">GitHub</a>. Use it however you like.</p>
+  </section>`;
+  view.innerHTML = `<div class="today"><div class="today-main"><div class="lead">
       <h2>${esc(today)}</h2>
-      <p class="muted">${all.length} stories, picked from ${idx.itemCount} headlines. Each story appears once, with every source that covered it.</p>
     </div>
     <div class="meter" role="group" aria-label="Today's reading">
       <div class="meter-top"><span><b>About ${mins} min</b> to read the summaries</span><span id="meter-n">${done} of ${all.length} opened</span></div>
@@ -148,12 +162,14 @@ async function renderHome() {
     <nav class="chips jump" aria-label="Jump to a section">
       ${sections.map((b) => `<a class="chip" href="#sec-${b.id}" data-jump="sec-${b.id}">${CATS[b.id]?.emoji || ""} ${esc(b.name)}</a>`).join("")}
     </nav>
-    ${idx.trending?.length ? `<details class="trend"><summary>What's being talked about <span class="muted small">· last 2 days</span></summary>
+    ${idx.trending?.length ? `<details class="trend"><summary><span class="grow">What's being talked about <span class="muted small">· last 2 days</span></span><span class="trend-toggle" aria-hidden="true"></span></summary>
       <p class="muted small">Words that appear in the most headlines, counting every source. Tap one to see those stories.</p>
       <ul class="trend-bars">${idx.trending.map(([w, n]) => `<li><a href="#/s/${encodeURIComponent(w)}"><span class="tw">${esc(w)}</span><span class="tb"><span style="width:${(100 * n) / maxTerm}%"></span></span><span class="tn">${n}</span></a></li>`).join("")}</ul></details>` : ""}
     ${sections.map(section).join("")}
+    </div>${side}</div>
     <p class="group-label">Go deeper</p>
-    <div class="browse">${idx.categories.map((c) => `<a class="venue" href="${c.id === "models" ? "#/models" : `#/c/${c.id}`}"><span class="cat-emoji" aria-hidden="true">${CATS[c.id]?.emoji || "•"}</span><span class="grow"><h3>${esc(c.name)}</h3><p>${esc(CATS[c.id]?.blurb || "")}</p></span><span class="count"><b>${c.count}</b>stories</span>${icon.chev}</a>`).join("")}</div>`;
+    <div class="browse">${idx.categories.map((c) => `<a class="venue" href="${c.id === "models" ? "#/models" : `#/c/${c.id}`}"><span class="cat-emoji" aria-hidden="true">${CATS[c.id]?.emoji || "•"}</span><span class="grow"><h3>${esc(c.name)}</h3><p>${esc(CATS[c.id]?.blurb || "")}</p></span><span class="count"><b>${c.count}</b>stories</span>${icon.chev}</a>`).join("")}</div>${about}`;
+  view.classList.add("wide");
   view.querySelectorAll("[data-jump]").forEach((a) => a.addEventListener("click", (e) => {
     e.preventDefault(); document.getElementById(a.dataset.jump)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }));
@@ -174,6 +190,7 @@ function storyCard(s, rank) {
     <div class="story-main">
       <span class="rank" aria-hidden="true">${rank}</span>
       <div class="body">
+        ${s.line ? `<p class="line-tag">Developing story · ${esc(s.line)}</p>` : ""}
         <a class="link" href="${esc(safeUrl(s.u))}" target="_blank" rel="noopener" data-visit="${esc(s.u)}"><h3>${esc(s.t)}</h3></a>
         <div class="meta"><span class="src">${esc(s.s)}</span>${s.off ? '<span class="badge main">Official</span>' : ""}<span>· ${ago(s.d)}</span>${s.n > 1 ? `<span class="badge">${s.n} sources</span>` : ""}${s.min ? `<span>· ${s.min} min read</span>` : ""}</div>
         ${settings.summaries && s.x ? `<p class="sum full">${esc(s.x)}</p>` : ""}
@@ -185,7 +202,7 @@ function storyCard(s, rank) {
 }
 function alsoList(s) {
   if (!s.also?.length) return "";
-  return `<details class="also"><summary>Also covered by ${esc(s.also.slice(0, 3).map((a) => a.s).join(", "))}${s.also.length > 3 ? ` +${s.also.length - 3}` : ""}</summary>
+  return `<details class="also"><summary>${s.line ? "More angles from" : "Also covered by"} ${esc(s.also.slice(0, 3).map((a) => a.s).join(", "))}${s.also.length > 3 ? ` +${s.also.length - 3}` : ""}</summary>
     <ul>${s.also.map((a) => `<li><a href="${esc(safeUrl(a.u))}" target="_blank" rel="noopener" data-visit="${esc(s.u)}"><b>${esc(a.s)}</b> ${esc(a.t)}</a></li>`).join("")}</ul></details>`;
 }
 
@@ -553,6 +570,7 @@ function route() {
   commitSeen();
   const parts = location.hash.replace(/^#\/?/, "").split("/").map(decodeURIComponent);
   window.scrollTo(0, 0);
+  view.classList.remove("wide");
   if (parts[0] === "c" && parts[1]) return renderCategory(parts[1]);
   if (parts[0] === "papers") return renderPapers(parts[1] || store.get("paperTab", "conferences"));
   if (parts[0] === "p" && parts[1]) return renderPaperList(parts[1], parts.slice(2).join("/"));

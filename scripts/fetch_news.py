@@ -412,6 +412,63 @@ def group_stories(items):
     return [g for g in groups if g]
 
 
+# A big event is covered from many angles ("files S-1", "$2T valuation", "who's in charge after the IPO"),
+# so the headlines don't look alike. Headlines naming the same company and the same kind of event within
+# STORYLINE_HOURS join one developing story when at least STORYLINE_SOURCES sources write about it.
+EVENTS = {
+    "IPO": r"\bIPOs?\b|\bS-1\b|public offering|go(es|ing)? public|stock market debut",
+    "acquisition": r"\bacquir\w*|\bacquisition|\bbuys\b|\bmerger\b|\btakeover\b",
+    "lawsuit": r"\blawsuits?\b|\bsues?\b|\bsued\b|\bverdict\b",
+    "layoffs": r"\blayoffs?\b|\bjob cuts\b|\bcuts [\d,]+ jobs\b",
+    "outage": r"\boutages?\b|\bwent down\b",
+    "breach": r"\bbreach\w*|\bhack(ed|ers?)?\b|\bdata leak",
+    "antitrust": r"\bantitrust\b|\bmonopoly\b",
+    "funding": r"\braises? \$|\bfunding round\b|\bvaluation\b",
+    "earnings": r"\bearnings\b|\bquarterly (results|revenue)\b",
+}
+EVENT_RES = {k: re.compile(v, re.I) for k, v in EVENTS.items()}
+NAME_RE = re.compile(r"\b[A-Z][A-Za-z0-9&.-]*[A-Za-z0-9]")
+STORYLINE_HOURS = 96
+STORYLINE_SOURCES = 3
+
+
+def join_storylines(groups, now):
+    """Join stories about one company's one event (e.g. Anthropic + IPO) into a developing story."""
+    def names(t):
+        return {w.lower() for w in NAME_RE.findall(t.replace("’", "'"))
+                if w.lower() not in STOP and w.lower() not in GENERIC and not any(r.search(w) for r in EVENT_RES.values())}
+    recent = [g for g in groups if now - max(m["ts"] for m in g) < STORYLINE_HOURS * 3600]
+    claimed = {}
+    lines = []
+    for ev, rx in EVENT_RES.items():
+        hits = [g for g in recent if any(rx.search(m["t"]) for m in g)]
+        sources_by_name = {}
+        for g in hits:
+            for nm in set().union(*(names(m["t"]) for m in g if rx.search(m["t"]))):
+                sources_by_name.setdefault(nm, set()).update(m["s"] for m in g)
+        for nm, srcs in sources_by_name.items():
+            if len(srcs) < STORYLINE_SOURCES:
+                continue
+            gs = [g for g in hits if any(rx.search(m["t"]) and nm in names(m["t"]) for m in g)]
+            if len(gs) >= 2:
+                lines.append((len(srcs), nm, ev, gs))
+    out_of = set()
+    for n, nm, ev, gs in sorted(lines, key=lambda x: -x[0]):
+        gs = [g for g in gs if id(g) not in out_of]
+        if len(gs) < 2:
+            continue
+        label = f"{next(w for m in gs[0] for w in NAME_RE.findall(m['t'].replace('’', chr(39))) if w.lower() == nm)} {ev}"
+        first = gs[0]
+        for g in gs[1:]:
+            first.extend(g)
+            g.clear()
+            out_of.add(id(g))
+        out_of.add(id(first))
+        for m in first:
+            m["line"] = label
+    return [g for g in groups if g]
+
+
 NEW_MODEL_NAMES = []   # filled from OpenRouter, e.g. "gpt-6.1 terra", "kimi k3.1"
 
 
@@ -450,7 +507,9 @@ def make_story(members, now, priority):
     st = {k: lead[k] for k in ("t", "u", "s", "d", "img", "min", "v") if lead.get(k)}
     st["x"] = best_x
     st["img"] = lead.get("img") or next((m["img"] for m in members if m.get("img")), None)
-    st["also"] = [{"s": m["s"], "u": m["u"], "t": m["t"]} for m in sources[1:8]]
+    st["also"] = [{"s": m["s"], "u": m["u"], "t": m["t"]} for m in sources[1:12 if lead.get("line") else 8]]
+    if lead.get("line"):
+        st["line"] = lead["line"]      # a developing story, e.g. "Anthropic IPO"
     st["n"] = len(sources)
     st["sc"] = round(score, 3)
     if lead["off"]:
@@ -552,6 +611,36 @@ def fetch_models():
     return out, problems
 
 
+def fetch_github_trending():
+    """New tools: the repositories gaining the most GitHub stars this week."""
+    page = get_html("https://github.com/trending?since=weekly")
+    out = []
+    for a in re.split(r'<article class="Box-row"', page)[1:]:
+        repo = re.search(r'<h2[^>]*>\s*<a[^>]*href="/([^"]+)"', a)
+        stars = re.search(r"([\d,]+)\s+stars this week", a)
+        if not repo or not stars:
+            continue
+        desc = re.search(r'<p class="col-9[^"]*">(.*?)</p>', a, re.S)
+        lang = re.search(r'itemprop="programmingLanguage">([^<]+)<', a)
+        out.append({"name": repo.group(1), "u": "https://github.com/" + repo.group(1),
+                    "x": clean_text(desc.group(1))[:160] if desc else "", "lang": lang.group(1).strip() if lang else None,
+                    "stars": int(stars.group(1).replace(",", ""))})
+    return sorted(out, key=lambda r: -r["stars"])
+
+
+MAJOR_LABS = ("openai", "anthropic", "google", "meta-llama", "x-ai", "deepseek", "qwen", "mistralai", "moonshotai",
+              "z-ai", "nvidia", "microsoft", "amazon", "minimax", "cohere", "ibm-granite")
+
+
+def top_models(new, stories):
+    """The new models people are writing about: most headlines naming them, then the big labs, then newest."""
+    titles = [(s["t"] + " " + " ".join(a["t"] for a in s.get("also", []))).lower() for s in stories]
+    for m in new:
+        nm = m["name"].lower()
+        m["talk"] = sum(1 for t in titles if nm in t) if len(nm) >= 4 else 0
+    return sorted(new, key=lambda m: (-m["talk"], m["id"].split("/")[0] not in MAJOR_LABS, m["d"] and -int(m["d"].replace("-", ""))))
+
+
 def main():
     cfg = json.loads((ROOT / "feeds.json").read_text())
     OUT.mkdir(parents=True, exist_ok=True)
@@ -593,7 +682,7 @@ def main():
 
     # One story per event, across every category.
     stories = []
-    for members in group_stories(news_items):
+    for members in join_storylines(group_stories(news_items), now.timestamp()):
         st, home, cats = make_story(members, now.timestamp(), priority)
         stories.append((st, home, cats))
     stories.sort(key=lambda s: s[0]["d"], reverse=True)
@@ -624,7 +713,13 @@ def main():
     (OUT / "models.json").write_text(json.dumps(models, ensure_ascii=False, separators=(",", ":")))
     index["problems"] += problems
     index["brief"] = brief
-    index["models"] = {"new": models["new"][:5], "count": len(models["new"])}
+    index["models"] = {"new": models["new"][:5], "top": top_models(list(models["new"]), [s[0] for s in stories])[:5],
+                       "trending": models["trending"][:5], "count": len(models["new"])}
+    try:
+        index["tools"] = fetch_github_trending()[:5]
+    except Exception as ex:  # noqa: BLE001
+        index["tools"] = []
+        index["problems"].append({"category": "Today", "source": "GitHub trending", "error": str(ex)[:200]})
     index["trending"] = trending_terms([s[0] for s in stories if now.timestamp() - datetime.fromisoformat(s[0]["d"]).timestamp() < 86400 * 2])
     index["storyCount"] = len(stories)
     index["itemCount"] = len(news_items)
