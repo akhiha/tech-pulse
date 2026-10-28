@@ -12,7 +12,6 @@ const CATS = {
   security: { emoji: "🔒", blurb: "Breaches, vulnerabilities and security analysis" },
   hardware: { emoji: "🖥️", blurb: "Chips, GPUs, servers and data-centre hardware" },
   tech:     { emoji: "📰", blurb: "Everything else from the big tech newsrooms" },
-  videos:   { emoji: "▶️", blurb: "Latest videos from tech, AI and research channels" },
 };
 const FIELD_CLASS = { se: "se", ai: "ai", green: "green" };
 const QUICK_TOPICS = [
@@ -154,7 +153,7 @@ async function renderHome() {
       <ul class="trend-bars">${idx.trending.map(([w, n]) => `<li><a href="#/s/${encodeURIComponent(w)}"><span class="tw">${esc(w)}</span><span class="tb"><span style="width:${(100 * n) / maxTerm}%"></span></span><span class="tn">${n}</span></a></li>`).join("")}</ul></details>` : ""}
     ${sections.map(section).join("")}
     <p class="group-label">Go deeper</p>
-    <div class="browse">${idx.categories.filter((c) => c.id !== "videos").map((c) => `<a class="venue" href="${c.id === "models" ? "#/models" : `#/c/${c.id}`}"><span class="cat-emoji" aria-hidden="true">${CATS[c.id]?.emoji || "•"}</span><span class="grow"><h3>${esc(c.name)}</h3><p>${esc(CATS[c.id]?.blurb || "")}</p></span><span class="count"><b>${c.count}</b>stories</span>${icon.chev}</a>`).join("")}</div>`;
+    <div class="browse">${idx.categories.map((c) => `<a class="venue" href="${c.id === "models" ? "#/models" : `#/c/${c.id}`}"><span class="cat-emoji" aria-hidden="true">${CATS[c.id]?.emoji || "•"}</span><span class="grow"><h3>${esc(c.name)}</h3><p>${esc(CATS[c.id]?.blurb || "")}</p></span><span class="count"><b>${c.count}</b>stories</span>${icon.chev}</a>`).join("")}</div>`;
   view.querySelectorAll("[data-jump]").forEach((a) => a.addEventListener("click", (e) => {
     e.preventDefault(); document.getElementById(a.dataset.jump)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }));
@@ -196,7 +195,7 @@ async function renderSearch(q) {
   view.innerHTML = skeleton();
   let idx;
   try { idx = await load("data/news/index.json"); } catch { view.innerHTML = errorBox("Couldn't load the news."); return; }
-  const ids = idx.categories.map((c) => c.id).filter((id) => id !== "videos");
+  const ids = idx.categories.map((c) => c.id);
   const files = await Promise.all(ids.map((id) => load(`data/news/${id}.json`).catch(() => ({ items: [] }))));
   const seen = new Set();
   const re = new RegExp(`\\b${q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "i");
@@ -209,15 +208,14 @@ async function renderSearch(q) {
 
 /* ---------- a news category ---------- */
 async function renderCategory(id, opts = {}) {
-  const isVideo = id === "videos";
   const meta = CATS[id] || {};
-  setChrome("…", isVideo ? "videos" : "home", !isVideo);
+  setChrome("…", "home", true);
   view.innerHTML = skeleton();
   let idx, data;
   try { [idx, data] = await Promise.all([load("data/news/index.json"), load(`data/news/${id}.json`)]); }
   catch { view.innerHTML = errorBox("Couldn't load this category."); return; }
   const cat = idx.categories.find((c) => c.id === id);
-  setChrome(cat ? cat.name : id, isVideo ? "videos" : "home", !isVideo);
+  setChrome(cat ? cat.name : id, "home", true);
   setUpdated(idx.updated);
   const seenBefore = lastSeen[id];
   if (data.items[0]) pendingSeen[id] = data.items[0].d;
@@ -228,7 +226,7 @@ async function renderCategory(id, opts = {}) {
   const tally = {};
   data.items.forEach((i) => new Set(srcOf(i)).forEach((n) => (tally[n] = (tally[n] || 0) + 1)));
   const sources = (cat?.sources || []).map((s) => ({ name: s.name, count: tally[s.name] || 0 })).filter((s) => s.count > 0);
-  view.innerHTML = `${isVideo ? "" : `<p class="muted small" style="margin:2px 4px 8px">${esc(meta.blurb || "")}. The same story from several sources is shown once.</p>`}
+  view.innerHTML = `<p class="muted small" style="margin:2px 4px 8px">${esc(meta.blurb || "")}. The same story from several sources is shown once.</p>
     <div class="tools">
       <input class="search" type="search" placeholder="Search ${esc(cat?.name || "")}" aria-label="Search this category" enterkeyhint="search">
       <div class="chips" role="group" aria-label="Filter by source">
@@ -242,23 +240,16 @@ async function renderCategory(id, opts = {}) {
   function draw() {
     const items = data.items.filter((i) => (!state.src || srcOf(i).includes(state.src)) && matches(state.q, i.t, i.x, ...srcOf(i)));
     if (!items.length) {
-      results.innerHTML = !data.items.length && isVideo
-        ? `<div class="empty"><div class="big">📺</div><p>YouTube isn't sending its video lists right now.</p><p class="small">This happens now and then. Videos come back by themselves at the next hourly update that reaches YouTube.</p></div>`
-        : `<div class="empty"><div class="big">🔍</div><p>Nothing matches.</p></div>`;
+      results.innerHTML = `<div class="empty"><div class="big">🔍</div><p>Nothing matches.</p></div>`;
       return;
     }
     const page = items.slice(0, state.shown);
-    let html = "";
-    if (isVideo) {
-      html = `<div class="vgrid">${page.map((i) => videoCard(i, state.q)).join("")}</div>`;
-    } else {
-      let day = "";
-      html = `<ul class="list">` + page.map((i) => {
-        const dl = dayLabel(i.d); let head = "";
-        if (dl !== day) { day = dl; head = `<li class="day" role="presentation">${esc(dl)}</li>`; }
-        return head + newsRow(i, state.q, seenBefore && i.d > seenBefore);
-      }).join("") + `</ul>`;
-    }
+    let day = "";
+    let html = `<ul class="list">` + page.map((i) => {
+      const dl = dayLabel(i.d); let head = "";
+      if (dl !== day) { day = dl; head = `<li class="day" role="presentation">${esc(dl)}</li>`; }
+      return head + newsRow(i, state.q, seenBefore && i.d > seenBefore);
+    }).join("") + `</ul>`;
     if (items.length > state.shown) html += `<button class="more" id="more">Show more (${items.length - state.shown} left)</button>`;
     results.innerHTML = html;
     $("#more")?.addEventListener("click", () => { state.shown += PAGE_SIZE; draw(); });
@@ -351,7 +342,7 @@ async function renderPapers(sub = "conferences") {
   view.innerHTML = skeleton();
   let idx;
   try { idx = await load("data/papers/index.json"); } catch { view.innerHTML = errorBox("Couldn't load the papers."); return; }
-  setUpdated(idx.updated, "Papers");
+  setUpdated(idx.updated, "Research");
   const field = store.get("paperField", "");
   const tabs = `<nav class="seg-tabs" aria-label="Paper sources">
     <a href="#/papers/conferences" ${sub === "conferences" ? 'aria-current="page"' : ""}>Conferences</a>
@@ -398,7 +389,7 @@ async function renderPaperList(kind, key) {
   if (!v) { view.innerHTML = errorBox("This list isn't available any more."); return; }
   const title = kind === "conf" ? `${v.id} ${v.year}` : kind === "journal" ? v.id : v.name;
   setChrome(title, "papers", true);
-  setUpdated(idx.updated, "Papers");
+  setUpdated(idx.updated, "Research");
   let data;
   try { data = await load(`data/papers/${v.file}`); } catch { view.innerHTML = errorBox("Couldn't load this list."); return; }
   data.items.forEach((i) => { i.venue = i.venue || title; });
@@ -540,7 +531,6 @@ function route() {
   const parts = location.hash.replace(/^#\/?/, "").split("/").map(decodeURIComponent);
   window.scrollTo(0, 0);
   if (parts[0] === "c" && parts[1]) return renderCategory(parts[1]);
-  if (parts[0] === "videos") return renderCategory("videos");
   if (parts[0] === "papers") return renderPapers(parts[1] || store.get("paperTab", "conferences"));
   if (parts[0] === "p" && parts[1]) return renderPaperList(parts[1], parts.slice(2).join("/"));
   if (parts[0] === "saved") return renderSaved();

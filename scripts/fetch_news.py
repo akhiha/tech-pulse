@@ -9,7 +9,8 @@ Source types in feeds.json:
   rss (default)  an RSS/Atom feed
   html           a listing page with no feed: links matching "match" are opened once each and their
                  title, date, picture and opening paragraphs read from the page (remembered in page_cache.json)
-  gnews          Google News search (for sites that block automated access, e.g. the IEA)
+  gnews          Google News search (for sites that block automated access, e.g. the IEA). With "link",
+                 each result points straight to the site's own page, built from the title
 
 The same story from several sources becomes one story: the original source leads and the rest are
 listed under it. Stories are ranked by how many sources cover them, whether the company itself
@@ -22,6 +23,7 @@ import json
 import math
 import re
 import time
+import unicodedata
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
@@ -241,6 +243,24 @@ class Pages:
         CACHE_FILE.write_text(json.dumps(keep, ensure_ascii=False, separators=(",", ":")))
 
 
+DATE_PART_RE = re.compile(r"^(january|february|march|april|may|june|july|august|september|october|november|december)?\s*(q[1-4][\s-]*)?\d{4}$", re.I)
+NOT_A_REPORT = {"policy recommendations", "executive summary", "introduction", "overview", "data and assumptions"}
+
+
+def report_title(title):
+    """'Executive summary - Global Hydrogen Review 2026' is a page of 'Global Hydrogen Review 2026'."""
+    parts = [p.strip() for p in title.split(" - ") if p.strip()]
+    if len(parts) > 1 and not DATE_PART_RE.match(parts[-1]):
+        parts = parts[-1:]
+    title = " - ".join(parts)
+    return None if title.lower() in NOT_A_REPORT else title
+
+
+def slugify(title):
+    t = unicodedata.normalize("NFKD", title).encode("ascii", "ignore").decode().lower()
+    return re.sub(r"[^a-z0-9]+", "-", t).strip("-")
+
+
 def item_from_entry(e, feed, dt):
     body = e.get("summary") or ""
     content = " ".join(c.get("value", "") for c in e.get("content") or [])
@@ -251,14 +271,14 @@ def item_from_entry(e, feed, dt):
         if src and title.endswith(" - " + src):
             title = title[: -len(src) - 3]
         body = content = ""
-    it = {"t": title[:220], "u": clean_url(e.link) if feed.get("type") != "gnews" else e.link, "s": feed["name"],
+        if feed.get("link"):
+            title = report_title(title)
+            if not title:
+                return None
+    it = {"t": title[:220], "u": clean_url(e.link) if feed.get("type") != "gnews" else feed["link"].format(slug=slugify(title)) if feed.get("link") else e.link, "s": feed["name"],
           "d": dt.isoformat(timespec="minutes"), "x": summarize(content or body, title) or summarize(body, title),
           "img": image_of(e)}
-    if e.get("yt_videoid"):
-        it["v"] = e.yt_videoid
-        it["img"] = f"https://i.ytimg.com/vi/{e.yt_videoid}/mqdefault.jpg"
-        it["x"] = summarize(e.get("media_description") or body, title, 200)
-    elif words > 150:
+    if words > 150:
         it["min"] = max(1, round(words / 230))
     return it
 
@@ -270,10 +290,6 @@ def fetch_feed(cat, feed):
             {"q": feed["query"], "hl": "en-US", "gl": "US", "ceid": "US:en"})
     d = feedparser.parse(url, agent=UA)
     status = getattr(d, "status", None)
-    if not d.entries and "youtube.com" in url:
-        time.sleep(2)
-        d = feedparser.parse(url, agent=UA)
-        status = getattr(d, "status", None)
     if not d.entries or (status and status >= 400):
         return [], f"no items (HTTP {status}) {d.get('bozo_exception', '')}"[:200]
     cutoff = datetime.now(timezone.utc) - timedelta(days=feed.get("maxAgeDays", cat.get("maxAgeDays", DEFAULT_MAX_AGE_DAYS)))
@@ -282,7 +298,10 @@ def fetch_feed(cat, feed):
         dt = when(e)
         if not dt or dt < cutoff or not e.get("link") or not e.get("title"):
             continue
-        items.append(item_from_entry(e, feed, dt))
+        it = item_from_entry(e, feed, dt)
+        if not it or any(i["u"] == it["u"] for i in items):
+            continue
+        items.append(it)
         if len(items) >= PER_FEED:
             break
     return items, None if items else "no recent items"
@@ -562,7 +581,7 @@ def main():
 
     now = datetime.now(timezone.utc)
     index = {"updated": now.isoformat(timespec="minutes"), "categories": [], "problems": []}
-    news_items, videos, sources = [], [], {c["id"]: [] for c in cfg["categories"]}
+    news_items, sources = [], {c["id"]: [] for c in cfg["categories"]}
     for (cat, feed), (its, err) in results:
         if err:
             index["problems"].append({"category": cat["name"], "source": feed["name"], "error": err})
@@ -570,7 +589,7 @@ def main():
         for it in its:
             it["cat"], it["w"] = cat["id"], feed.get("weight", 1.0)
             it["off"] = bool(feed.get("official", cat.get("official", False)))
-            (videos if cat["id"] == "videos" else news_items).append(it)
+            news_items.append(it)
 
     # One story per event, across every category.
     stories = []
@@ -586,23 +605,13 @@ def main():
     used.update(s[0]["u"] for s in top)
     brief.append({"id": "top", "name": "Top stories", "stories": [s[0] for s in top]})
     for c in cfg["categories"]:
-        if c["id"] == "videos":
-            continue
         pick = [s[0] for s in ranked if s[1] == c["id"] and s[0]["u"] not in used][:BRIEF_PER_SECTION]
         used.update(s["u"] for s in pick)
         brief.append({"id": c["id"], "name": c["name"], "stories": pick})
     fill_summaries([s for b in brief for s in b["stories"]], pages)
 
     for c in cfg["categories"]:
-        if c["id"] == "videos":
-            seen_u, seen_t, items = set(), set(), []
-            for it in sorted(videos, key=lambda i: i["d"], reverse=True):
-                if it["u"] in seen_u or norm(it["t"]) in seen_t:
-                    continue
-                seen_u.add(it["u"]); seen_t.add(norm(it["t"]))
-                items.append({k: v for k, v in it.items() if k not in ("cat", "w", "off", "tok", "xtok", "ts", "key")})
-        else:
-            items = [st for st, home, cats in stories if c["id"] in cats or home == c["id"]]
+        items = [st for st, home, cats in stories if c["id"] in cats or home == c["id"]]
         if c["id"] == "models":          # Model Watch has its own file, written below
             model_news = items
             index["categories"].append({"id": c["id"], "name": c["name"], "count": len(items), "sources": sources[c["id"]]})

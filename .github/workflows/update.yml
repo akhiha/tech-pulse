@@ -2,7 +2,7 @@ name: Update and publish
 
 on:
   schedule:
-    - cron: "17 * * * *"   # every hour: news and videos
+    - cron: "17 * * * *"   # every hour: news and Model Watch
   workflow_dispatch:        # "Run workflow" button on GitHub
   push:
     branches: [main]
@@ -45,7 +45,7 @@ jobs:
           key: news-cache-${{ github.run_id }}
           restore-keys: news-cache-
 
-      - name: Fetch news, videos and Model Watch
+      - name: Fetch news and Model Watch
         run: python scripts/fetch_news.py
 
       - name: Fetch papers (once a day)

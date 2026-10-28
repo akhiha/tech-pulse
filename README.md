@@ -1,15 +1,15 @@
 # Tech Pulse
 
-A personal daily tech brief, built to be read in about 15 minutes, plus videos, new AI models
+A personal daily tech brief, built to be read in about 15 minutes, plus new AI models
 and research papers. It is a plain website (no app store). GitHub Actions refreshes it on its own:
-news, videos and models every hour, papers once a day.
+news and models every hour, papers once a day.
 
 ## How the brief is made (no AI needed)
 
 1. **Collect.** Every source in `feeds.json` is read. Most have an RSS feed. Sites without one are
    scraped: Anthropic's listing pages are read and each new article is opened once for its title,
    date, picture and opening paragraphs (remembered in `.cache/`). The IEA blocks automated access,
-   so its reports and news come through Google News.
+   so its reports come through Google News, each linked straight to the report on iea.org.
 2. **Group.** The same event reported by several sources becomes one story. Two headlines match
    when they share most of their key words, with rare words (names, products such as "GPT-6.1 Terra"
    or "iOS 27.2") counting for more than common ones, and were published within 72 hours.

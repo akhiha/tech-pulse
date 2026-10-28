@@ -95,27 +95,6 @@ INFO = {  # name -> (type, what it covers)
     "IEEE Spectrum Semiconductors": ("Magazine", "Chip technology and fabrication"),
     "ServeTheHome": ("News site", "Servers, data-centre and AI hardware"),
 }
-VIDEO = {
-    "MKBHD": "Phone and gadget reviews",
-    "Linus Tech Tips": "PC hardware, gadgets",
-    "The Verge": "Gadget reviews and tech explainers",
-    "Dave2D": "Laptop and gadget reviews",
-    "Fireship": "Fast programming and dev-news videos",
-    "Two Minute Papers": "AI and graphics research explained",
-    "Yannic Kilcher": "ML paper walkthroughs",
-    "AI Explained": "Frontier AI model news and analysis",
-    "Andrej Karpathy": "Deep LLM tutorials (posts rarely)",
-    "Machine Learning Street Talk": "Long-form AI research interviews",
-    "Computerphile": "Computer science concepts explained",
-    "GOTO Conferences": "Software engineering conference talks",
-    "Google for Developers": "Google's official developer channel",
-    "Microsoft Developer": "Microsoft's official developer channel",
-    "NVIDIA": "NVIDIA's official channel",
-    "Apple": "Apple's official channel (events, ads)",
-    "Lex Fridman": "Long interviews with tech and AI people",
-    "Undecided with Matt Ferrell": "Clean energy and sustainable tech",
-    "Climate Town": "Climate explained with humour",
-}
 
 cfg = json.load(open("feeds.json"))
 check = {(r["category"], r["name"]): r for r in json.load(open("feed_check.json"))}
@@ -130,10 +109,11 @@ wb = Workbook()
 ws = wb.active
 ws.title = "Sources"
 
-ws["A1"] = "Tech Pulse: candidate sources"
+ws["A1"] = "Tech Pulse: news sources (research papers are on the next sheet, \"Research papers\")"
 ws["A1"].font = Font(name=F, size=14, bold=True)
 ws["A2"] = ("How to use: in the yellow 'Include?' column, choose Yes or No for each source. "
-            "Add your own sources at the bottom (any site with an RSS feed, or any YouTube channel). "
+            "Add your own sources at the bottom (any site with an RSS feed). "
+            "Conferences, journals and arXiv topic searches are on the \"Research papers\" sheet. "
             "Every feed was tested on " + datetime.now().strftime("%d %b %Y") + ".")
 ws["A2"].font = Font(name=F, size=10, italic=True)
 ws.merge_cells("A2:I2")
@@ -156,16 +136,10 @@ r = HR + 1
 for cat in cfg["categories"]:
     for f in cat["feeds"]:
         chk = check[(cat["name"], f["name"])]
-        if cat["id"] == "videos":
-            typ, what = "YouTube channel", VIDEO[f["name"]]
-        else:
-            typ, what = INFO[f["name"]]
+        typ, what = INFO[f["name"]]
         latest = datetime.fromisoformat(chk["latest"]).date() if chk["latest"] else None
         works = "Yes" if chk["ok"] else "No: " + ("feed removed (HTTP 410)" if chk["http"] == 410 else "feed is broken")
-        yt_down = not chk["ok"] and "youtube.com" in chk["url"] and "404" in chk["error"]
-        if yt_down:      # YouTube drops its feeds for hours at a time; that says nothing about the channel
-            works = "Not checked: YouTube feeds were down during this check"
-        vals = ["Yes" if chk["ok"] or yt_down else "No", cat["name"], f["name"], typ, what, works,
+        vals = ["Yes" if chk["ok"] else "No", cat["name"], f["name"], typ, what, works,
                 latest, chk["last7d"] if chk["ok"] else None, chk["url"]]
         for i, v in enumerate(vals, 1):
             c = ws.cell(r, i, v)
@@ -222,15 +196,23 @@ for cat in cfg["categories"]:
 sm.cell(row, 1, "Total").font = Font(name=F, bold=True)
 sm.cell(row, 2, f"=SUM(B5:B{row-1})").font = Font(name=F, bold=True)
 sm.cell(row, 3, f"=SUM(C5:C{row-1})").font = Font(name=F, bold=True)
+row += 2
+_pc = json.load(open("papers.json"))
+_pend = 4 + len(_pc["conferences"]) + len(_pc["journals"]) + len(_pc["topics"]) + 8
+for kind, label in (("Conference", "Research: conferences"), ("Journal", "Research: journals"), ("Topic search", "Research: arXiv topics")):
+    sm.cell(row, 1, label).font = Font(name=F)
+    sm.cell(row, 2, f"=COUNTIF('Research papers'!$B$5:$B${_pend},\"{kind}\")").font = Font(name=F)
+    sm.cell(row, 3, f"=COUNTIFS('Research papers'!$B$5:$B${_pend},\"{kind}\",'Research papers'!$A$5:$A${_pend},\"Yes\")").font = Font(name=F)
+    row += 1
 sm.column_dimensions["A"].width = 24
 sm.column_dimensions["B"].width = 18
 sm.column_dimensions["C"].width = 16
 
 notes = [
     "Notes",
-    "Anthropic, Meta AI (ai.meta.com) and The Batch (DeepLearning.AI) publish no RSS feed, so they can't be followed automatically. Their stories still show up through Techmeme, The Verge, The Decoder and others.",
+    "Anthropic publishes no RSS feed, so its news, engineering and research pages are read directly.",
+    "IEA: only its reports are shown, each linked straight to the report on iea.org (found through Google News, because the IEA blocks automated access).",
     "arXiv searches are tuned to your research (agents, AI for SE, LLM energy, uncertainty). Tell me other keywords and I'll add them.",
-    "Any YouTube channel can be added: give me the channel link.",
     "The site updates itself every hour: new posts from every chosen source appear on their own.",
 ]
 for k, t in enumerate(notes):
@@ -247,7 +229,7 @@ for col in "DEF":
 pcfg = json.load(open("papers.json"))
 pidx = json.load(open("site/data/papers/index.json"))
 fname = {f["id"]: f["name"] for f in pcfg["fields"]}
-pv = wb.create_sheet("Paper venues", 1)
+pv = wb.create_sheet("Research papers", 1)
 pv["A1"] = "Tech Pulse: research paper sources"
 pv["A1"].font = Font(name=F, size=14, bold=True)
 pv["A2"] = ("Conferences: papers whose authors note on arXiv that they were accepted there (this year and next). "
