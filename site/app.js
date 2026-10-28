@@ -241,7 +241,12 @@ async function renderCategory(id, opts = {}) {
 
   function draw() {
     const items = data.items.filter((i) => (!state.src || srcOf(i).includes(state.src)) && matches(state.q, i.t, i.x, ...srcOf(i)));
-    if (!items.length) { results.innerHTML = `<div class="empty"><div class="big">🔍</div><p>Nothing matches.</p></div>`; return; }
+    if (!items.length) {
+      results.innerHTML = !data.items.length && isVideo
+        ? `<div class="empty"><div class="big">📺</div><p>YouTube isn't sending its video lists right now.</p><p class="small">This happens now and then. Videos come back by themselves at the next hourly update that reaches YouTube.</p></div>`
+        : `<div class="empty"><div class="big">🔍</div><p>Nothing matches.</p></div>`;
+      return;
+    }
     const page = items.slice(0, state.shown);
     let html = "";
     if (isVideo) {
