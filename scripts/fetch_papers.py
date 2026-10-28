@@ -2,8 +2,9 @@
 
 Three sources, all from papers.json:
   conferences: arXiv papers whose author comment says they were accepted at <VENUE> <YEAR>
-               (this year and next year), so they show up as soon as authors post them.
-  journals:    newest articles from OpenAlex by ISSN, with abstracts. Where the publisher
+               (next year back to YEARS_BACK years ago), so they show up as soon as authors post them.
+               Past years change little, so they are fetched again only once a week.
+  journals:    articles of the last YEARS_BACK+1 years from OpenAlex by ISSN, with abstracts. Where the publisher
                doesn't share the abstract, it is taken from the paper's arXiv preprint
                (matched by title; lookups are cached in abstract_cache.json).
   topics:      arXiv keyword searches for the newest papers on a research topic.
@@ -29,7 +30,9 @@ OUT = ROOT / "site" / "data" / "papers"
 UA = "TechPulse/1.0 (personal research reader)"
 ARXIV = "https://export.arxiv.org/api/query?"
 PAGE = 1000
-MAX_PER_VENUE_YEAR = 4000
+MAX_PER_VENUE_YEAR = 6000
+YEARS_BACK = 2             # conferences from 2 years ago (3 years with this one); journals from 3 years ago to today
+PAST_YEAR_REFRESH_DAYS = 7
 LOOKUPS_PER_RUN = 250      # arXiv title lookups per run (3 s each); the rest wait for tomorrow
 RETRY_MISS_DAYS = 14       # a preprint may appear later, so look again after this
 TITLE_MATCH = 0.93         # how alike two titles must be to count as the same paper
@@ -56,8 +59,8 @@ def arxiv(query, start=0, n=PAGE, sort="submittedDate"):
         d = feedparser.parse(url, agent=UA)
         if d.entries or getattr(d, "status", 200) == 200 and "opensearch_totalresults" in d.feed:
             return d
-        time.sleep(5 * (attempt + 1))
-    return d
+        time.sleep((20 if getattr(d, "status", 200) == 429 else 5) * (attempt + 1))
+    raise RuntimeError(f"arXiv gave no answer (HTTP {getattr(d, 'status', '?')})")
 
 
 def authors(names):
@@ -134,14 +137,21 @@ def abstract_from_index(inv):
     return " ".join(pos[i] for i in sorted(pos))
 
 
-def fetch_journal(j):
-    data = openalex({
-        "filter": f"primary_location.source.issn:{j['issn']},type:article",
-        "sort": "publication_date:desc", "per_page": 60,
-        "select": "title,publication_date,doi,authorships,abstract_inverted_index,open_access,id",
-    })
+def fetch_journal(j, since):
+    """Every article published on or after `since`, newest first."""
+    works, page = [], 1
+    while True:      # page= paging (cursor paging needs an API key)
+        data = openalex({
+            "filter": f"primary_location.source.issn:{j['issn']},type:article,from_publication_date:{since}",
+            "sort": "publication_date:desc", "per_page": 100, "page": page,
+            "select": "title,publication_date,doi,authorships,abstract_inverted_index,open_access,id",
+        })
+        works += data.get("results", [])
+        if not data.get("results") or len(works) >= (data.get("meta") or {}).get("count", 0) or page >= 50:
+            break
+        page += 1
     items = []
-    for w in data.get("results", []):
+    for w in works:
         if not w.get("title"):
             continue
         items.append({
@@ -229,18 +239,26 @@ def main():
                 return e
         return None
 
+    today = datetime.now(timezone.utc).date()
     for v in cfg["conferences"]:
-        for y in (year + 1, year):
+        for y in range(year + 1, year - YEARS_BACK - 1, -1):
             key = f"{v['id']} {y}"
+            prev = keep_old("conferences", key)
+            if (y < year and prev and prev.get("fetched") and (OUT / prev["file"]).exists()
+                    and (today - datetime.fromisoformat(prev["fetched"]).date()).days < PAST_YEAR_REFRESH_DAYS):
+                prev["week"] = 0
+                index["conferences"].append(prev)
+                continue
             try:
                 items = fetch_conference(v, y)
             except Exception as ex:  # noqa: BLE001
                 index["problems"].append({"source": key, "error": str(ex)[:200]})
-                prev = keep_old("conferences", key)
                 if prev:
                     index["conferences"].append(prev)
                 continue
             if not items:
+                if prev and (OUT / prev["file"]).exists():
+                    index["conferences"].append(prev)
                 continue
             f = f"conf-{slug(v['id'])}-{y}.json"
             write(f, {"items": items})
@@ -251,19 +269,28 @@ def main():
                 "key": key, "id": v["id"], "year": y, "field": v["field"], "name": v["name"],
                 "official": v["official"].format(year=y), "file": f,
                 "count": len(items), "week": week_count(items), "kinds": kinds,
-                "latest": max((i["d"] or "") for i in items),
+                "latest": max((i["d"] or "") for i in items), "fetched": today.isoformat(),
             })
             print(f"{key:16} {len(items):5} accepted papers on arXiv")
 
     cache_file = OUT / "abstract_cache.json"
     abs_cache = json.loads(cache_file.read_text()) if cache_file.exists() else {}
     budget = LOOKUPS_PER_RUN
+    oldest = (today - timedelta(days=365 * (YEARS_BACK + 1))).isoformat()
     for j in cfg["journals"]:
+        # The whole three years once a week; on other days only the last 60 days, added to what we have.
+        prev = keep_old("journals", j["id"])
+        prev_file = OUT / prev["file"] if prev else None
+        full = not (prev and prev.get("fetched") and prev_file.exists()
+                    and (today - datetime.fromisoformat(prev["fetched"]).date()).days < PAST_YEAR_REFRESH_DAYS)
         try:
-            items = fetch_journal(j)
+            items = fetch_journal(j, oldest if full else (today - timedelta(days=60)).isoformat())
+            if not full:
+                have = {i["u"] for i in items}
+                items += [i for i in json.loads(prev_file.read_text())["items"] if i["u"] not in have and (i["d"] or "") >= oldest]
+                items.sort(key=lambda i: i["d"] or "", reverse=True)
         except Exception as ex:  # noqa: BLE001
             index["problems"].append({"source": j["id"], "error": str(ex)[:200]})
-            prev = keep_old("journals", j["id"])
             if prev:
                 index["journals"].append(prev)
             continue
@@ -277,7 +304,8 @@ def main():
         write(f, {"items": items})
         index["journals"].append({"key": j["id"], "id": j["id"], "field": j["field"], "name": j["name"],
                                   "file": f, "count": len(items), "week": week_count(items),
-                                  "latest": max(((i["d"] or "") for i in items), default="")})
+                                  "latest": max(((i["d"] or "") for i in items), default=""),
+                                  "fetched": today.isoformat() if full else prev["fetched"]})
         print(f"{j['id']:16} {len(items):5} newest articles, abstracts {had} from publisher"
               f" + {sum(1 for i in items if i.get('absSrc'))} from arXiv")
 

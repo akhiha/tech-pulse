@@ -347,7 +347,7 @@ async function renderPapers(sub = "conferences") {
   const tabs = `<nav class="seg-tabs" aria-label="Paper sources">
     <a href="#/papers/conferences" ${sub === "conferences" ? 'aria-current="page"' : ""}>Conferences</a>
     <a href="#/papers/journals" ${sub === "journals" ? 'aria-current="page"' : ""}>Journals</a>
-    <a href="#/papers/topics" ${sub === "topics" ? 'aria-current="page"' : ""}>My topics</a></nav>`;
+    <a href="#/papers/topics" ${sub === "topics" ? 'aria-current="page"' : ""}>Topics</a></nav>`;
   const fieldChips = `<div class="chips" role="group" aria-label="Filter by field">
     <button class="chip" data-field="" aria-pressed="${!field}">All fields</button>
     ${idx.fields.map((f) => `<button class="chip" data-field="${f.id}" aria-pressed="${field === f.id}">${esc(f.name)}</button>`).join("")}</div>`;
@@ -361,22 +361,35 @@ async function renderPapers(sub = "conferences") {
   const week = (n) => (n ? `<br><span style="color:var(--new)">+${n} this week</span>` : "");
   if (sub === "conferences") {
     body = `<div class="notice">These are papers whose authors posted them on arXiv and wrote "accepted at…". That usually happens weeks before the conference. Each conference also links to its full official program.</div>
-      ${byField(idx.conferences, (c) => `<a class="venue" href="#/p/conf/${encodeURIComponent(c.key)}">
-        <span class="grow"><h3>${esc(c.id)} ${c.year}</h3><p>${esc(c.name)}</p></span>
-        <span class="count"><b>${c.count}</b>papers${week(c.week)}</span>${icon.chev}</a>`) || '<div class="empty">No conferences here yet.</div>'}`;
+      ${byField(confVenues(idx.conferences), (c) => `<div class="venue conf-years">
+        <span class="grow"><h3>${esc(c.id)}</h3><p>${esc(c.name)}</p>
+        <span class="years">${c.years.map((y) => `<a class="chip" href="#/p/conf/${encodeURIComponent(y.key)}">${y.year}<span class="n">${y.count}</span></a>`).join("")}</span></span>
+        <span class="count">${week(c.week).replace("<br>", "")}</span></div>`) || '<div class="empty">No conferences here yet.</div>'}`;
   } else if (sub === "journals") {
-    body = `<div class="notice">The newest articles from each journal, with abstracts, refreshed daily.</div>
+    body = `<div class="notice">Every article of the last three years from each journal, with abstracts, refreshed daily.</div>
       ${byField(idx.journals, (j) => `<a class="venue" href="#/p/journal/${encodeURIComponent(j.key)}">
         <span class="grow"><h3>${esc(j.id)}</h3><p>${esc(j.name)}</p></span>
-        <span class="count"><b>${j.count}</b>latest${week(j.week)}</span>${icon.chev}</a>`)}`;
+        <span class="count"><b>${j.count}</b>articles${week(j.week)}</span>${icon.chev}</a>`)}`;
   } else {
-    body = `<div class="notice">New arXiv papers from the last 10 days on topics you follow.</div>
+    body = `<div class="notice">New arXiv papers from the last 10 days on each research topic.</div>
       ${idx.topics.map((t) => `<a class="venue" href="#/p/topic/${encodeURIComponent(t.key)}">
         <span class="grow"><h3>${esc(t.name)}</h3><p>arXiv search, newest first</p></span>
         <span class="count"><b>${t.count}</b>papers${t.week ? `<br><span style="color:var(--new)">+${t.week} this week</span>` : ""}</span>${icon.chev}</a>`).join("")}`;
   }
   view.innerHTML = `${tabs}${sub === "topics" ? "" : fieldChips}<div style="margin-top:10px">${body}</div>`;
   view.querySelectorAll("[data-field]").forEach((b) => b.addEventListener("click", () => { store.set("paperField", b.dataset.field); renderPapers(sub); }));
+}
+
+// One row per conference, with a link for each year (newest first).
+function confVenues(list) {
+  const by = new Map();
+  for (const c of list) {
+    if (!by.has(c.id)) by.set(c.id, { id: c.id, name: c.name, field: c.field, week: 0, years: [] });
+    const v = by.get(c.id);
+    v.years.push(c); v.week += c.week || 0;
+  }
+  for (const v of by.values()) v.years.sort((a, b) => b.year - a.year);
+  return [...by.values()];
 }
 
 async function renderPaperList(kind, key) {
@@ -394,13 +407,16 @@ async function renderPaperList(kind, key) {
   try { data = await load(`data/papers/${v.file}`); } catch { view.innerHTML = errorBox("Couldn't load this list."); return; }
   data.items.forEach((i) => { i.venue = i.venue || title; });
 
-  const state = { q: "", kind: "", topic: "", shown: PAGE_SIZE };
+  const state = { q: "", kind: "", topic: "", year: "", shown: PAGE_SIZE };
+  const yearCounts = {};
+  data.items.forEach((i) => { const y = (i.d || "").slice(0, 4); if (y) yearCounts[y] = (yearCounts[y] || 0) + 1; });
+  const years = Object.entries(yearCounts).sort((a, b) => b[0].localeCompare(a[0]));
   const kinds = v.kinds ? Object.entries(v.kinds).sort((a, b) => b[1] - a[1]) : [];
   const topicCounts = QUICK_TOPICS.map(([n, re]) => [n, re, data.items.filter((i) => re.test(i.t + " " + i.abs)).length]).filter((x) => x[2]);
   const intro = kind === "conf"
     ? `<div class="notice"><b>${esc(v.name)}</b><br>${v.count} accepted papers found on arXiv so far.
        <a href="${esc(safeUrl(v.official))}" target="_blank" rel="noopener">See the full official program ↗</a></div>`
-    : kind === "journal" ? `<div class="notice"><b>${esc(v.name)}</b><br>Newest ${v.count} articles.</div>`
+    : kind === "journal" ? `<div class="notice"><b>${esc(v.name)}</b><br>${v.count} articles from the last three years, newest first.</div>`
     : `<div class="notice">Newest arXiv papers: <b>${esc(v.name)}</b>.</div>`;
   view.innerHTML = `${intro}
     <div class="tools">
@@ -408,13 +424,16 @@ async function renderPaperList(kind, key) {
       ${kinds.length > 1 ? `<div class="chips" role="group" aria-label="Track">
         <button class="chip" data-kind="" aria-pressed="true">All tracks<span class="n">${data.items.length}</span></button>
         ${kinds.map(([k, n]) => `<button class="chip" data-kind="${esc(k)}" aria-pressed="false">${esc(k)}<span class="n">${n}</span></button>`).join("")}</div>` : ""}
+      ${kind === "journal" && years.length > 1 ? `<div class="chips" role="group" aria-label="Year">
+        <button class="chip" data-year="" aria-pressed="true">All years<span class="n">${data.items.length}</span></button>
+        ${years.map(([y, n]) => `<button class="chip" data-year="${y}" aria-pressed="false">${y}<span class="n">${n}</span></button>`).join("")}</div>` : ""}
       ${topicCounts.length ? `<div class="chips" role="group" aria-label="Quick topics">
         ${topicCounts.map(([n, , c]) => `<button class="chip" data-topic="${esc(n)}" aria-pressed="false">${esc(n)}<span class="n">${c}</span></button>`).join("")}</div>` : ""}
     </div><div id="results"></div>`;
   const results = $("#results");
   function draw() {
     const re = QUICK_TOPICS.find(([n]) => n === state.topic)?.[1];
-    const items = data.items.filter((i) => (!state.kind || i.k === state.kind) && (!re || re.test(i.t + " " + i.abs)) && matches(state.q, i.t, i.abs, (i.a || []).join(" ")));
+    const items = data.items.filter((i) => (!state.kind || i.k === state.kind) && (!state.year || (i.d || "").startsWith(state.year)) && (!re || re.test(i.t + " " + i.abs)) && matches(state.q, i.t, i.abs, (i.a || []).join(" ")));
     if (!items.length) { results.innerHTML = `<div class="empty"><div class="big">🔍</div><p>No papers match.</p></div>`; return; }
     results.innerHTML = items.slice(0, state.shown).map((i) => paperCard(i, state.q, title)).join("")
       + (items.length > state.shown ? `<button class="more" id="more">Show more (${items.length - state.shown} left)</button>` : "");
@@ -425,6 +444,10 @@ async function renderPaperList(kind, key) {
   view.querySelectorAll("[data-kind]").forEach((b) => b.addEventListener("click", () => {
     state.kind = b.dataset.kind; state.shown = PAGE_SIZE;
     view.querySelectorAll("[data-kind]").forEach((x) => x.setAttribute("aria-pressed", x === b)); draw();
+  }));
+  view.querySelectorAll("[data-year]").forEach((b) => b.addEventListener("click", () => {
+    state.year = b.dataset.year; state.shown = PAGE_SIZE;
+    view.querySelectorAll("[data-year]").forEach((x) => x.setAttribute("aria-pressed", x === b)); draw();
   }));
   view.querySelectorAll("[data-topic]").forEach((b) => b.addEventListener("click", () => {
     state.topic = state.topic === b.dataset.topic ? "" : b.dataset.topic; state.shown = PAGE_SIZE;

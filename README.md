@@ -72,7 +72,8 @@ Most authors post accepted papers on arXiv with a note such as "Accepted at ICSE
 The fetcher searches those notes for each conference (this year and next), skipping
 "under review" or "submitted to". Papers show up weeks before the conference.
 Papers that never go on arXiv are missed, so every conference page also links to its
-official program.
+official program. Conferences cover the last three years (2024 on) plus next year; past years are re-checked weekly;
+journals keep every article of the last three years.
 
 Journal abstracts come from OpenAlex. Some publishers (often Elsevier and Springer) don't
 share them; for those articles the fetcher looks for the paper's arXiv preprint by title

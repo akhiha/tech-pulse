@@ -281,3 +281,6 @@ legend { font-weight: 600; font-size: .9em; margin-bottom: 8px; }
 .tabbar a span { font-size: 11px; }
 .story .thumb { width: 64px; height: 64px; }
 @media (max-width: 420px) { .story .thumb { width: 56px; height: 56px; } .story .rank { display: none; } }
+.conf-years .years { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.conf-years .years .chip { min-height: 32px; padding: 4px 12px; text-decoration: none; color: var(--text); display: inline-flex; align-items: center; }
+.conf-years .years a, .conf-years .years a * { text-decoration: none; }
